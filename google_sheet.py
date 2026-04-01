@@ -16,35 +16,41 @@ class GoogleSheetManager:
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         self.client = gspread.authorize(creds)
         self.doc = self.client.open_by_key(spreadsheet_id)
-        self.sheet = self.doc.sheet1
 
-    def get_data(self):
-        df = pd.DataFrame(self.sheet.get_all_records())
-        df.columns = df.columns.str.strip()
-        return df
+    def get_sheet_data(self, sheet_name):
+        """특정 탭(시트)의 데이터를 가져옴"""
+        try:
+            worksheet = self.doc.worksheet(sheet_name)
+            df = pd.DataFrame(worksheet.get_all_records())
+            df.columns = df.columns.str.strip()
+            return df, worksheet
+        except gspread.exceptions.WorksheetNotFound:
+            print(f"⚠️ '{sheet_name}' 탭을 찾을 수 없어. 구글 시트에 탭을 만들어줘!")
+            return pd.DataFrame(), None
 
-    def update_main_sheet(self, df):
+    def update_sheet(self, worksheet, df):
+        """특정 탭(시트)의 데이터를 통째로 덮어씌움"""
+        if worksheet is None or df.empty: return
         df.fillna('', inplace=True)
         update_data = [df.columns.tolist()] + df.values.tolist()
-        self.sheet.update(values=update_data, range_name='A1')
+        worksheet.clear() # 깔끔하게 지우고 새 데이터로 덮어쓰기
+        worksheet.update(values=update_data, range_name='A1')
 
-    def append_history(self, df):
-        # 대소문자 상관없이 History 시트 찾기
+    def get_latest_history(self):
+        """History 탭에서 가장 최근(어제) 기록을 가져옴"""
+        df, _ = self.get_sheet_data('History')
+        if not df.empty:
+            return df.iloc[-1] # 마지막 행 반환
+        return None
+
+    def append_to_history(self, row_data_dict):
+        """History 탭에 오늘 날짜의 자산 요약 데이터를 한 줄 추가"""
         try:
-            history_sheet = self.doc.worksheet('History')
-        except gspread.exceptions.WorksheetNotFound:
-            try:
-                history_sheet = self.doc.worksheet('history')
-            except gspread.exceptions.WorksheetNotFound:
-                print("⚠️ History 탭을 찾을 수 없어서 히스토리 저장은 건너뛸게.")
-                return
-
-        df_history = df.copy()
-        df_history.insert(0, '기록일시', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        
-        # 시트가 비어있으면 헤더(컬럼명) 추가
-        if len(history_sheet.get_all_values()) == 0:
-            history_sheet.append_row(df_history.columns.tolist())
-            
-        history_sheet.append_rows(df_history.values.tolist())
-        print("✅ History 탭 데이터 누적 완료!")
+            worksheet = self.doc.worksheet('History')
+            # 시트가 비어있으면 헤더(키값) 먼저 추가
+            if len(worksheet.get_all_values()) == 0:
+                worksheet.append_row(list(row_data_dict.keys()))
+            worksheet.append_row(list(row_data_dict.values()))
+            print("✅ History 탭 데이터 누적 완료!")
+        except Exception as e:
+            print(f"⚠️ History 탭 업데이트 실패: {e}")
