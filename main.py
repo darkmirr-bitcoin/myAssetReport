@@ -22,6 +22,7 @@ def main():
     sheet_manager = GoogleSheetManager(SPREADSHEET_ID)
     df = sheet_manager.get_data()
     
+# ============== [이 부분을 찾아서] ==============
     # [핵심 수정 1] 시트에 MACD, OBV 등 새 컬럼이 없으면 미리 만들어두기 (안 그러면 아래 루프에서 무시됨)
     new_cols = ['MACD', 'OBV', '거래강도(%)']
     for col in new_cols:
@@ -31,7 +32,7 @@ def main():
     # 1. 숫자 데이터 전처리
     df['매수가($)'] = pd.to_numeric(df['매수가($)'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-
+    # ================================================
     # 2. 종목별 루프 (가격 및 지표 업데이트)
     for index, row in df.iterrows():
         ticker = str(row['티커']).strip()
