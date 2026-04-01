@@ -1,0 +1,88 @@
+/* style.css */
+body { 
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; 
+    padding: 30px; 
+    background-color: #f4f7f6; 
+    color: #333;
+    line-height: 1.6;
+}
+
+h2 { 
+    text-align: center; 
+    color: #2c3e50; 
+    margin-bottom: 10px;
+    font-size: 28px;
+}
+
+.summary-header {
+    text-align: center;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.summary-header p { margin: 5px 0; font-size: 14px; color: #7f8c8d; }
+.summary-header strong { color: #34495e; }
+
+table { 
+    border-collapse: collapse; 
+    width: 100%; 
+    max-width: 1000px;
+    margin: 0 auto;
+    background-color: white; 
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1); 
+}
+
+th { 
+    background-color: #34495e; 
+    color: white; 
+    font-weight: bold; 
+    padding: 18px; 
+    text-align: center; 
+    font-size: 15px;
+}
+
+td { 
+    padding: 16px; 
+    text-align: right; 
+    border-bottom: 1px solid #ebf0f1;
+    font-size: 15px;
+}
+
+td:first-child { 
+    text-align: center; 
+    font-weight: bold; 
+    color: #2c3e50; 
+    background-color: #fbfcfc;
+}
+
+tr:nth-child(odd) td { background-color: #fdfdfd; }
+tr:hover td { background-color: #f1f4f5 !important; }
+
+.pos { color: #e74c3c; font-weight: bold; } /* 상승: 빨강 */
+.neg { color: #3498db; font-weight: bold; } /* 하락: 파랑 */
+
+/* 마지막 '총 자산' 행 강조 */
+table tr:last-child td { 
+    background-color: #ecf0f1 !important;
+    font-weight: bold; 
+    font-size: 17px;
+    color: #2c3e50;
+    border-top: 2px solid #bdc3c7;
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+@media screen and (max-width: 768px) {
+    body { padding: 15px; }
+    h2 { font-size: 22px; }
+    table { font-size: 13px; }
+    th, td { padding: 10px; }
+}
