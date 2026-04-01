@@ -1,44 +1,41 @@
-name: Daily Asset Report
+name: Daily Asset Report Automation
 
 on:
   schedule:
-    # 매일 한국 시간(KST) 오전 9시 00분 (UTC 기준 00:00)
-    - cron: '0 0 * * *' 
-  workflow_dispatch: # 수동 실행 버튼
+    # 매일 한국 시간 아침 8시에 자동 실행 (UTC 기준 23시)
+    - cron: '0 23 57 * *' 
+  workflow_dispatch: # 깃허브에서 수동으로 버튼 눌러서 실행 가능하게 함
+
+# [핵심] 깃허브 액션이 봇(Bot)으로서 파일(index.html)을 덮어쓸 수 있도록 쓰기 권한 부여
+permissions:
+  contents: write 
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: 저장소 체크아웃
-        uses: actions/checkout@v3
 
-      - name: 파이썬 환경 세팅
+    steps:
+      - name: 1. 내 깃허브 저장소 파일 가져오기
+        uses: actions/checkout@v4
+
+      - name: 2. 파이썬 환경 세팅
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: 필요한 라이브러리 설치
+      - name: 3. 필요한 파이썬 라이브러리 설치
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pandas yfinance gspread oauth2client pyupbit FinanceDataReader pandas_ta requests
 
-      - name: 파이썬 스크립트 실행 (main.py)
-        # 여기에 GCP 인증키, 텔레그램 토큰, 챗 ID를 환경 변수로 세팅
+      - name: 4. 파이썬 메인 스크립트 실행 (HTML 생성 포함)
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
 
-      - name: 배포용 폴더 만들고 index.html 이동
-        run: |
-          mkdir public
-          mv index.html public/
-
-      - name: GitHub Pages에 배포
-        uses: peaceiris/actions-gh-pages@v3
+     - name: 5. 변경된 리포트 파일들 자동 커밋
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          publish_branch: gh-pages
+          commit_message: "🚀 일일 자산 리포트 및 아카이브 업데이트"
+          file_pattern: "index.html reports/*.md" # index와 reports 폴더 내 모든 md 파일 포함
