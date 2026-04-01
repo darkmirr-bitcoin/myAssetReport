@@ -1,137 +1,152 @@
 import pandas as pd
 import yfinance as yf
+from datetime import datetime
 from google_sheet import GoogleSheetManager
 from indicators import fetch_history_data, calculate_indicators
-from telegram_bot import send_telegram_message
+# from telegram_bot import send_telegram_message # 필요시 주석 해제
 
 def get_exchange_rate():
     try:
-        # 실시간 USD/KRW 환율 가져오기
         rate = yf.Ticker("USDKRW=X").history(period="1d")['Close'].iloc[-1]
         return rate
     except:
-        return 1350.0 # 실패 시 기본 환율
+        return 1350.0
 
-def main():
-    SPREADSHEET_ID = '1tZMCE70ZKaSBbh5ls3MlrpQbzpIa278yFT4DPneva6o'
-    pd.options.display.float_format = '{:.2f}'.format
+# 공통 데이터 처리 및 지표 업데이트 함수
+def process_asset_df(df, category, is_usd=False):
+    if df.empty: return df, 0, 0
     
-    exchange_rate = get_exchange_rate()
-    print(f"현재 환율: 1달러 = {exchange_rate:.2f}원")
-
-    sheet_manager = GoogleSheetManager(SPREADSHEET_ID)
-    df = sheet_manager.get_data()
-    
-    # 1. 숫자 데이터 전처리 및 지표 컬럼 숫자형(float) 세팅
-    df['매수가($)'] = pd.to_numeric(df['매수가($)'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
+    # 숫자형 전처리 및 지표 컬럼 초기화
+    df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-
-    # 지표가 들어갈 컬럼들은 텍스트로 인식되지 않게 무조건 숫자형으로 미리 뚫어둬야 해
-    indicator_cols = ['RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'OBV', '거래강도(%)']
+    
+    indicator_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'OBV', '거래강도(%)']
     for col in indicator_cols:
-        if col not in df.columns:
-            df[col] = 0.0  # 빈 문자열('') 대신 0.0으로 초기화해서 숫자형 보장
-        else:
-            # 기존 시트가 빈칸이라 문자열로 굳어버린 컬럼도 강제로 숫자형으로 변환
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-    # 2. 종목별 루프 (가격 및 지표 업데이트)
+        if col not in df.columns: df[col] = 0.0
+        else: df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+
+    # 지표 및 현재가 업데이트
     for index, row in df.iterrows():
-        ticker = str(row['티커']).strip()
-        category = str(row['구분']).strip()
-        
+        ticker = str(row.get('티커', '')).strip()
         if not ticker or ticker == 'nan': continue
             
         df_hist = fetch_history_data(category, ticker)
         ind_data = calculate_indicators(df_hist)
         
         if ind_data:
+            # 현재가는 달러면 소수점 유지, 원화면 반올림
+            current_price = ind_data.pop('현재가($)', 0)
+            df.at[index, '현재가'] = round(current_price, 2) if is_usd else round(current_price, 0)
+            
             for col, val in ind_data.items():
                 if col in df.columns:
                     df.at[index, col] = val
 
-    # 3. 수익률 및 평가금액 계산 (통화 컬럼 반영)
-    df['현재가($)'] = pd.to_numeric(df['현재가($)'], errors='coerce').fillna(0)
+    # 평가금액 및 손익 계산
+    if is_usd:
+        df['평가금액(USD)'] = (df['현재가'] * df['수량']).round(2)
+        df['평가손익(USD)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(2)
+        invest_total = (df['매수가'] * df['수량']).sum()
+        eval_total = df['평가금액(USD)'].sum()
+    else:
+        df['평가금액(KRW)'] = (df['현재가'] * df['수량']).round(0)
+        df['평가손익(KRW)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(0)
+        invest_total = (df['매수가'] * df['수량']).sum()
+        eval_total = df['평가금액(KRW)'].sum()
+        
+    # 구글 시트 % 서식 충돌 방지 (* 100 제거)
+    df['수익률'] = df.apply(lambda x: (x['현재가'] - x['매수가']) / x['매수가'] if x['매수가'] > 0 else 0, axis=1)
     
-    # [핵심 수정 2] 평가금액 및 평가손익 계산 시 소수점 날리기 (.round(0) 적용)
-    df['평가금액($)'] = (df['현재가($)'] * df['수량']).round(0)
-    df['평가손익($)'] = ((df['현재가($)'] - df['매수가($)']) * df['수량']).round(0)
+    return df, invest_total, eval_total
+
+def main():
+    SPREADSHEET_ID = '1tZMCE70ZKaSBbh5ls3MlrpQbzpIa278yFT4DPneva6o'
+    exchange_rate = get_exchange_rate()
+    print(f"현재 환율: 1달러 = {exchange_rate:.2f}원")
+
+    sheet_manager = GoogleSheetManager(SPREADSHEET_ID)
     
-    # [핵심 수정 3] 수익률(%) 계산 시 * 100 제거 (구글 시트의 % 서식과 충돌하여 뻥튀기되는 현상 방지)
-    df['수익률(%)'] = df.apply(
-        lambda x: ((x['현재가($)'] - x['매수가($)']) / x['매수가($)']) if x['매수가($)'] > 0 else 0, 
-        axis=1
-    )
-
-    # 4. 시트 업데이트 및 저장
-    sheet_manager.update_main_sheet(df)
-    sheet_manager.append_history(df)
-
-    print("4. HTML 리포트 생성 중...")
+    # ---------------------------------------------------------
+    # 1. 각 탭별 데이터 처리 및 업데이트
+    # ---------------------------------------------------------
+    # [해외주식 탭] - USD 기준
+    df_us, ws_us = sheet_manager.get_sheet_data('해외주식')
+    df_us, us_invest_usd, us_eval_usd = process_asset_df(df_us, '해외주식', is_usd=True)
+    if ws_us: sheet_manager.update_sheet(ws_us, df_us)
     
-    # 웹페이지 출력용으로 쓸 복사본 생성
-    df_html = df.copy()
+    # [COIN 탭] - KRW 기준
+    df_coin, ws_coin = sheet_manager.get_sheet_data('COIN')
+    df_coin, coin_invest_krw, coin_eval_krw = process_asset_df(df_coin, '코인', is_usd=False)
+    if ws_coin: sheet_manager.update_sheet(ws_coin, df_coin)
 
-    # 금액에 단위 붙여주는 함수
-    def format_currency(row, col):
-        val = row[col]
-        if pd.isna(val) or val == '': return val
-        try:
-            val = float(val)
-            # 통화가 USD면 소수점 둘째자리까지 달러 기호
-            if str(row.get('통화', '')).strip().upper() == 'USD':
-                return f"${val:,.2f}"
-            # 아니면 소수점 버리고 원화 기호
-            else:
-                return f"₩{val:,.0f}"
-        except:
-            return val
+    # [개인연금 탭] - KRW 기준
+    df_pen, ws_pen = sheet_manager.get_sheet_data('개인연금')
+    df_pen, pen_invest_krw, pen_eval_krw = process_asset_df(df_pen, '한국ETF', is_usd=False)
+    if ws_pen: sheet_manager.update_sheet(ws_pen, df_pen)
 
-    # 가격 관련 컬럼 포맷팅 적용
-    price_cols = ['매수가($)', '현재가($)', '평가금액($)', '평가손익($)']
-    for col in price_cols:
-        if col in df_html.columns:
-            df_html[col] = df_html.apply(lambda r: format_currency(r, col), axis=1)
+    # ---------------------------------------------------------
+    # 2. 통합 자산 원화(KRW) 환산
+    # ---------------------------------------------------------
+    us_invest_krw = us_invest_usd * exchange_rate
+    us_eval_krw = us_eval_usd * exchange_rate
 
-    # [핵심 수정 4] HTML 리포트용 수익률 표기 시 다시 * 100 처리
-    if '수익률(%)' in df_html.columns:
-        df_html['수익률(%)'] = df_html['수익률(%)'].apply(
-            lambda x: f"<span style='color:red; font-weight:bold;'>+{(float(x) * 100):.2f}%</span>" if float(x) > 0 
-            else f"<span style='color:blue; font-weight:bold;'>{(float(x) * 100):.2f}%</span>" if float(x) < 0 
-            else "0.00%"
-        )
-
-    # HTML 뼈대 만들기
-    html_style = """
-    <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; }
-        h2 { color: #333; }
-        table { border-collapse: collapse; width: 100%; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: right; font-size: 14px; }
-        th { background-color: #4CAF50; color: white; text-align: center; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-    </style>
-    """
+    total_invest_krw = us_invest_krw + coin_invest_krw + pen_invest_krw
+    total_eval_krw = us_eval_krw + coin_eval_krw + pen_eval_krw
     
-    # escape=False 로 둬야 span 태그(색상)가 제대로 먹힘
-    html_table = df_html.to_html(index=False, classes='asset-table', escape=False)
+    # ---------------------------------------------------------
+    # 3. 전일 대비 변동폭 계산 (History 탭 읽어오기)
+    # ---------------------------------------------------------
+    last_history = sheet_manager.get_latest_history()
     
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head><meta charset="UTF-8"><title>일일 자산 리포트</title>{html_style}</head>
-    <body>
-        <h2>📊 일일 자산 리포트</h2>
-        <p>업데이트: {pd.Timestamp.now('Asia/Seoul').strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p>적용 환율: 1달러 = {exchange_rate:,.2f}원</p>
-        {html_table}
-    </body>
-    </html>
-    """
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
+    def get_diff(current_val, history_key):
+        if last_history is not None and history_key in last_history:
+            try:
+                # 콤마 제거 후 숫자로 변환
+                past_val = float(str(last_history[history_key]).replace(',', ''))
+                return current_val - past_val
+            except: pass
+        return 0.0
 
-    print("5. 텔레그램 알림 발송 중...")
-  #  send_telegram_message(df, exchange_rate)
+    diff_us = get_diff(us_eval_krw, '해외주식(₩)')
+    diff_coin = get_diff(coin_eval_krw, 'COIN(₩)')
+    diff_pen = get_diff(pen_eval_krw, '개인연금(₩)')
+    diff_total = get_diff(total_eval_krw, '총자산(₩)')
+
+    # ---------------------------------------------------------
+    # 4. Today 탭 데이터 생성 및 업데이트
+    # ---------------------------------------------------------
+    today_data = {
+        '자산군': ['해외주식 (USD 변환)', 'COIN', '개인연금', '총 자산'],
+        '투자원금(₩)': [round(us_invest_krw, 0), round(coin_invest_krw, 0), round(pen_invest_krw, 0), round(total_invest_krw, 0)],
+        '평가금액(₩)': [round(us_eval_krw, 0), round(coin_eval_krw, 0), round(pen_eval_krw, 0), round(total_eval_krw, 0)],
+        '평가손익(₩)': [round(us_eval_krw - us_invest_krw, 0), round(coin_eval_krw - coin_invest_krw, 0), round(pen_eval_krw - pen_invest_krw, 0), round(total_eval_krw - total_invest_krw, 0)],
+        '수익률(%)': [
+            (us_eval_krw - us_invest_krw) / us_invest_krw if us_invest_krw > 0 else 0,
+            (coin_eval_krw - coin_invest_krw) / coin_invest_krw if coin_invest_krw > 0 else 0,
+            (pen_eval_krw - pen_invest_krw) / pen_invest_krw if pen_invest_krw > 0 else 0,
+            (total_eval_krw - total_invest_krw) / total_invest_krw if total_invest_krw > 0 else 0
+        ],
+        '전일대비 변동폭(₩)': [round(diff_us, 0), round(diff_coin, 0), round(diff_pen, 0), round(diff_total, 0)]
+    }
+    
+    df_today = pd.DataFrame(today_data)
+    _, ws_today = sheet_manager.get_sheet_data('Today')
+    if ws_today:
+        sheet_manager.update_sheet(ws_today, df_today)
+        print("✅ Today 탭 요약 완료!")
+
+    # ---------------------------------------------------------
+    # 5. History 탭 데이터 누적
+    # ---------------------------------------------------------
+    history_row = {
+        '일자': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        '적용환율': round(exchange_rate, 2),
+        '해외주식(₩)': round(us_eval_krw, 0),
+        'COIN(₩)': round(coin_eval_krw, 0),
+        '개인연금(₩)': round(pen_eval_krw, 0),
+        '총자산(₩)': round(total_eval_krw, 0)
+    }
+    sheet_manager.append_to_history(history_row)
     
     print("🚀 모든 작업이 성공적으로 끝났어!")
 
