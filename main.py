@@ -16,23 +16,22 @@ def get_exchange_rate():
 def process_asset_df(df, category, is_usd=False):
     if df.empty: return df, 0, 0
     
-    # [핵심 수정] 시트에 '매수가($)'나 '매수가(₩)'로 되어있어도 알아서 '매수가'로 통일해서 인식
+    # [수정] 컬럼명이 중복으로 바뀌지 않도록 방어 로직 추가
     rename_dict = {}
     for col in df.columns:
         col_str = str(col).strip()
-        if '매수가' in col_str: rename_dict[col] = '매수가'
-        elif '현재가' in col_str: rename_dict[col] = '현재가'
-        elif '수량' in col_str: rename_dict[col] = '수량'
-        elif '티커' in col_str or '종목' in col_str: rename_dict[col] = '티커'
+        # 이미 찾은 컬럼은 건너뛰기
+        if '매수가' in col_str and '매수가' not in rename_dict.values(): rename_dict[col] = '매수가'
+        elif '현재가' in col_str and '현재가' not in rename_dict.values(): rename_dict[col] = '현재가'
+        elif '수량' in col_str and '수량' not in rename_dict.values(): rename_dict[col] = '수량'
+        elif ('티커' in col_str or '종목코드' in col_str) and '티커' not in rename_dict.values(): rename_dict[col] = '티커'
         
     df.rename(columns=rename_dict, inplace=True)
 
-    # 혹시라도 필수 컬럼이 아예 누락됐을 경우 에러 방지용으로 빈 칸 생성
     if '매수가' not in df.columns: df['매수가'] = 0
     if '수량' not in df.columns: df['수량'] = 0
     if '티커' not in df.columns: df['티커'] = ''
 
-    # 숫자형 전처리 및 지표 컬럼 초기화
     df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
@@ -41,16 +40,19 @@ def process_asset_df(df, category, is_usd=False):
         if col not in df.columns: df[col] = 0.0
         else: df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
 
-    # 지표 및 현재가 업데이트
     for index, row in df.iterrows():
-        ticker = str(row.get('티커', '')).strip()
+        # [수정] 티커가 만약 Series(중복 컬럼)로 나오면 무조건 첫 번째 값만 빼오기
+        ticker_val = row.get('티커', '')
+        if isinstance(ticker_val, pd.Series):
+            ticker_val = ticker_val.iloc[0]
+            
+        ticker = str(ticker_val).strip()
         if not ticker or ticker == 'nan': continue
             
         df_hist = fetch_history_data(category, ticker)
         ind_data = calculate_indicators(df_hist)
         
         if ind_data:
-            # 현재가는 달러면 소수점 유지, 원화면 반올림
             current_price = ind_data.pop('현재가($)', 0)
             df.at[index, '현재가'] = round(current_price, 2) if is_usd else round(current_price, 0)
             
@@ -58,7 +60,6 @@ def process_asset_df(df, category, is_usd=False):
                 if col in df.columns:
                     df.at[index, col] = val
 
-    # 평가금액 및 손익 계산
     if is_usd:
         df['평가금액(USD)'] = (df['현재가'] * df['수량']).round(2)
         df['평가손익(USD)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(2)
@@ -70,24 +71,6 @@ def process_asset_df(df, category, is_usd=False):
         invest_total = (df['매수가'] * df['수량']).sum()
         eval_total = df['평가금액(KRW)'].sum()
         
-    # 구글 시트 % 서식 충돌 방지 (* 100 제거)
-    df['수익률'] = df.apply(lambda x: (x['현재가'] - x['매수가']) / x['매수가'] if x['매수가'] > 0 else 0, axis=1)
-    
-    return df, invest_total, eval_total
-
-    # 평가금액 및 손익 계산
-    if is_usd:
-        df['평가금액(USD)'] = (df['현재가'] * df['수량']).round(2)
-        df['평가손익(USD)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(2)
-        invest_total = (df['매수가'] * df['수량']).sum()
-        eval_total = df['평가금액(USD)'].sum()
-    else:
-        df['평가금액(KRW)'] = (df['현재가'] * df['수량']).round(0)
-        df['평가손익(KRW)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(0)
-        invest_total = (df['매수가'] * df['수량']).sum()
-        eval_total = df['평가금액(KRW)'].sum()
-        
-    # 구글 시트 % 서식 충돌 방지 (* 100 제거)
     df['수익률'] = df.apply(lambda x: (x['현재가'] - x['매수가']) / x['매수가'] if x['매수가'] > 0 else 0, axis=1)
     
     return df, invest_total, eval_total
