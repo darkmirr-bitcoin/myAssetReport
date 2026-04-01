@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from google_sheet import GoogleSheetManager
-from data_processor import get_exchange_rate, process_asset_df
+from data_processor import get_exchange_rate, process_asset_df, check_market_open
 from report_generator import generate_reports
 from telegram_bot import send_telegram_message
 
@@ -13,20 +13,24 @@ def main():
 
     print(f"현재 환율: 1달러 = {exchange_rate:.2f}원")
 
-    # 1. 각 탭 데이터 처리 및 업데이트
+    # 휴장일 체크
+    is_us_open = check_market_open('해외주식')
+    is_kr_open = check_market_open('연금저축')
+
+    # 1. 각 탭 데이터 처리 및 업데이트 (휴장일 변수 is_open 넘겨줌)
     df_us, ws_us = sheet_manager.get_sheet_data('해외주식')
-    df_us, us_inv_usd, us_eval_usd = process_asset_df(df_us, '해외주식', is_usd=True)
+    df_us, us_inv_usd, us_eval_usd = process_asset_df(df_us, '해외주식', is_usd=True, is_open=is_us_open)
     if ws_us: sheet_manager.update_sheet(ws_us, df_us)
     
     df_coin, ws_coin = sheet_manager.get_sheet_data('COIN')
-    df_coin, coin_inv_krw, coin_eval_krw = process_asset_df(df_coin, '코인', is_usd=False)
+    df_coin, coin_inv_krw, coin_eval_krw = process_asset_df(df_coin, '코인', is_usd=False, is_open=True) # 코인은 항상 오픈
     if ws_coin: sheet_manager.update_sheet(ws_coin, df_coin)
 
     df_pen, ws_pen = sheet_manager.get_sheet_data('개인연금')
-    df_pen, pen_inv_krw, pen_eval_krw = process_asset_df(df_pen, '연금저축', is_usd=False)
+    df_pen, pen_inv_krw, pen_eval_krw = process_asset_df(df_pen, '연금저축', is_usd=False, is_open=is_kr_open)
     if ws_pen: sheet_manager.update_sheet(ws_pen, df_pen)
 
-    # 2. History 누적용 전체 데이터 합치기 (모든 종목 상세 누적)
+    # 2. History 누적용 전체 데이터 합치기
     df_us['기록일자'] = now_str
     df_coin['기록일자'] = now_str
     df_pen['기록일자'] = now_str
@@ -44,7 +48,6 @@ def main():
     total_inv_krw = float(us_inv_krw + coin_inv_krw + pen_inv_krw)
     total_eval_krw = float(us_eval_krw + coin_eval_krw + pen_eval_krw)
 
-    # 전일 대비 변동폭 계산 (업데이트 되기 전의 기존 'Today' 탭을 읽어와서 비교)
     last_today_summary = sheet_manager.get_latest_history_summary()
     
     def get_diff_from_today(current_val, asset_name):
@@ -52,7 +55,6 @@ def main():
             try:
                 row = last_today_summary[last_today_summary['자산군'] == asset_name]
                 if not row.empty:
-                    # 콤마(,)와 원화(₩) 기호 제거 후 실수 변환
                     past_val_str = str(row.iloc[0]['평가금액(₩)']).replace(',', '').replace('₩', '')
                     past_val = float(past_val_str)
                     return float(current_val - past_val)
@@ -64,7 +66,6 @@ def main():
     diff_pen = get_diff_from_today(pen_eval_krw, '개인연금')
     diff_total = get_diff_from_today(total_eval_krw, '총 자산')
 
-    # df_today 완벽 생성
     today_data = {
         '자산군': ['해외주식 (USD 변환)', 'COIN', '개인연금', '총 자산'],
         '투자원금(₩)': [int(us_inv_krw), int(coin_inv_krw), int(pen_inv_krw), int(total_inv_krw)],
@@ -81,13 +82,12 @@ def main():
     
     df_today = pd.DataFrame(today_data)
     
-    # 새 데이터로 Today 탭 덮어쓰기
     _, ws_today = sheet_manager.get_sheet_data('Today')
     if ws_today:
         sheet_manager.update_sheet(ws_today, df_today)
         print("✅ Today 탭 업데이트 완료!")
 
-    # 4. 리포트 생성 및 전송 (이제 df_today 변수가 정상적으로 들어감!)
+    # 4. 리포트 생성 및 전송
     generate_reports(df_today, exchange_rate)
     send_telegram_message(df_today, exchange_rate)
     
