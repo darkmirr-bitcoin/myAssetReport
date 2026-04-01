@@ -16,11 +16,10 @@ def get_exchange_rate():
 def process_asset_df(df, category, is_usd=False):
     if df.empty: return df, 0, 0
     
-    # [수정] 컬럼명이 중복으로 바뀌지 않도록 방어 로직 추가
+    # 1. 컬럼명 꼬임 방지 및 필수 컬럼 세팅
     rename_dict = {}
     for col in df.columns:
         col_str = str(col).strip()
-        # 이미 찾은 컬럼은 건너뛰기
         if '매수가' in col_str and '매수가' not in rename_dict.values(): rename_dict[col] = '매수가'
         elif '현재가' in col_str and '현재가' not in rename_dict.values(): rename_dict[col] = '현재가'
         elif '수량' in col_str and '수량' not in rename_dict.values(): rename_dict[col] = '수량'
@@ -35,32 +34,23 @@ def process_asset_df(df, category, is_usd=False):
     df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-    # 1. 숫자형 지표: 무조건 float(소수점 허용) 타입으로 강제 변환
+    # 2. 숫자형 지표: 무조건 float(소수점 허용) 타입으로 강제 변환
     num_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'MACD 히스토그램', 'OBV', '거래강도(%)']
     for col in num_cols:
         if col not in df.columns:
             df[col] = 0.0
-        # 기존 데이터가 int로 굳어있을 수 있으므로 float으로 확실히 뚫어줌
+        # int64 에러 방지를 위해 확실하게 float으로 변환
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0).astype(float)
 
-    # 2. 텍스트 지표: 무조건 str(문자열) 타입으로 강제 변환
+    # 3. 텍스트 지표: 무조건 str(문자열) 타입으로 강제 변환
     text_cols = ['추세상태', 'OBV 추세']
     for col in text_cols:
         if col not in df.columns:
             df[col] = ''
         df[col] = df[col].astype(str)
-    
-    for col in indicator_cols:
-        if col not in df.columns:
-            df[col] = '' # 텍스트가 섞이므로 우선 빈칸으로 생성
-        # 숫자가 들어갈 열들은 미리 숫자형으로 변환 (추세상태 같은 텍스트 열은 제외)
-        if col not in ['추세상태', 'OBV 추세']:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
 
-    # (이후 루프문 등은 기존과 동일)
-
+    # 4. 지표 및 현재가 업데이트 루프
     for index, row in df.iterrows():
-        # [수정] 티커가 만약 Series(중복 컬럼)로 나오면 무조건 첫 번째 값만 빼오기
         ticker_val = row.get('티커', '')
         if isinstance(ticker_val, pd.Series):
             ticker_val = ticker_val.iloc[0]
@@ -72,6 +62,7 @@ def process_asset_df(df, category, is_usd=False):
         ind_data = calculate_indicators(df_hist)
         
         if ind_data:
+            # 현재가는 달러면 소수점 유지, 원화면 반올림
             current_price = ind_data.pop('현재가($)', 0)
             df.at[index, '현재가'] = round(current_price, 2) if is_usd else round(current_price, 0)
             
@@ -79,6 +70,7 @@ def process_asset_df(df, category, is_usd=False):
                 if col in df.columns:
                     df.at[index, col] = val
 
+    # 5. 평가금액 및 손익 계산
     if is_usd:
         df['평가금액(USD)'] = (df['현재가'] * df['수량']).round(2)
         df['평가손익(USD)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(2)
@@ -90,6 +82,7 @@ def process_asset_df(df, category, is_usd=False):
         invest_total = (df['매수가'] * df['수량']).sum()
         eval_total = df['평가금액(KRW)'].sum()
         
+    # 구글 시트 % 서식 충돌 방지 (* 100 제거)
     df['수익률'] = df.apply(lambda x: (x['현재가'] - x['매수가']) / x['매수가'] if x['매수가'] > 0 else 0, axis=1)
     
     return df, invest_total, eval_total
