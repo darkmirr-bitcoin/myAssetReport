@@ -59,7 +59,7 @@ def main():
     sheet_manager.append_history(df)
 
     # 5. 텔레그램 발송 (환율 정보를 함께 넘겨서 통합 자산 계산)
-    send_telegram_message(df, exchange_rate)
+  #  send_telegram_message(df, exchange_rate)
     
     print("🚀 모든 데이터가 시트에 업데이트 되었어!")
 
