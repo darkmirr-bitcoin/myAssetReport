@@ -30,7 +30,7 @@ def send_telegram_message(df_today, exchange_rate):
     msg += f"💰 총 자산: {total_eval:,.0f}원\n"
     msg += f"{sign} 총 손익: {total_profit:,.0f}원 ({total_rate:.2f}%)\n"
     msg += f"{diff_sign} 전일 대비: {daily_diff:,.0f}원\n\n"
-    msg += f"🌐 상세 리포트 (GitHub Pages 주소 입력)" # 나중에 네 깃헙 주소로 바꿔!
+    msg += f"🌐 상세 리포트 (https://darkmirr-bitcoin.github.io/myAssetReport/)" # 나중에 네 깃헙 주소로 바꿔!
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
