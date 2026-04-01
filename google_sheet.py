@@ -17,7 +17,7 @@ class GoogleSheetManager:
         self.client = gspread.authorize(creds)
         self.doc = self.client.open_by_key(spreadsheet_id)
 
-   def get_sheet_data(self, sheet_name):
+    def get_sheet_data(self, sheet_name):
         """특정 탭(시트)의 데이터를 가져옴 (빈칸/중복 헤더 에러 방지)"""
         try:
             worksheet = self.doc.worksheet(sheet_name)
