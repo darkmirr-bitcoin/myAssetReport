@@ -35,11 +35,20 @@ def process_asset_df(df, category, is_usd=False):
     df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-  # 업데이트할 지표 목록 (시트 헤더와 이름이 똑같아야 함)
-    indicator_cols = [
-        '현재가', '추세상태', 'RSI', 'EMA20', 'MACD', 
-        'MACD 히스토그램', 'OBV', 'OBV 추세', '거래강도(%)'
-    ]
+    # 1. 숫자형 지표: 무조건 float(소수점 허용) 타입으로 강제 변환
+    num_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'MACD 히스토그램', 'OBV', '거래강도(%)']
+    for col in num_cols:
+        if col not in df.columns:
+            df[col] = 0.0
+        # 기존 데이터가 int로 굳어있을 수 있으므로 float으로 확실히 뚫어줌
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0).astype(float)
+
+    # 2. 텍스트 지표: 무조건 str(문자열) 타입으로 강제 변환
+    text_cols = ['추세상태', 'OBV 추세']
+    for col in text_cols:
+        if col not in df.columns:
+            df[col] = ''
+        df[col] = df[col].astype(str)
     
     for col in indicator_cols:
         if col not in df.columns:
