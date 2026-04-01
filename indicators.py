@@ -7,7 +7,7 @@ import re
 
 def fetch_history_data(category, ticker):
     try:
-        if any(keyword in category for keyword in ['한국ETF', '국내주식', 'ISA']):
+        if any(keyword in category for keyword in ['한국ETF', '국내주식', 'ISA', '연금저축']):
             match = re.search(r'\d{6}', ticker)
             if match: return fdr.DataReader(match.group())
         elif category == '해외주식':
