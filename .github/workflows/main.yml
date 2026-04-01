@@ -38,4 +38,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "🚀 일일 자산 리포트 및 아카이브 업데이트"
-          file_pattern: "index.html reports/*.md" # index와 reports 폴더 내 모든 md 파일 포함
+          file_pattern: "index.html style.css reports/*.md"
