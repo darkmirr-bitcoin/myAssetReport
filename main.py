@@ -35,10 +35,20 @@ def process_asset_df(df, category, is_usd=False):
     df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-    indicator_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'OBV', '거래강도(%)']
+  # 업데이트할 지표 목록 (시트 헤더와 이름이 똑같아야 함)
+    indicator_cols = [
+        '현재가', '추세상태', 'RSI', 'EMA20', 'MACD', 
+        'MACD 히스토그램', 'OBV', 'OBV 추세', '거래강도(%)'
+    ]
+    
     for col in indicator_cols:
-        if col not in df.columns: df[col] = 0.0
-        else: df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        if col not in df.columns:
+            df[col] = '' # 텍스트가 섞이므로 우선 빈칸으로 생성
+        # 숫자가 들어갈 열들은 미리 숫자형으로 변환 (추세상태 같은 텍스트 열은 제외)
+        if col not in ['추세상태', 'OBV 추세']:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+
+    # (이후 루프문 등은 기존과 동일)
 
     for index, row in df.iterrows():
         # [수정] 티커가 만약 Series(중복 컬럼)로 나오면 무조건 첫 번째 값만 빼오기
