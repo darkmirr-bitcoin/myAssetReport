@@ -34,16 +34,15 @@ def process_asset_df(df, category, is_usd=False):
     df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
-    # 2. 숫자형 지표: 무조건 float(소수점 허용) 타입으로 강제 변환
-    num_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'MACD 히스토그램', 'OBV', '거래강도(%)']
+    # 2. 숫자형 지표
+    num_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'MACD히스토그램', 'OBV', '거래량강도(%)']
     for col in num_cols:
         if col not in df.columns:
             df[col] = 0.0
-        # int64 에러 방지를 위해 확실하게 float으로 변환
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0).astype(float)
 
-    # 3. 텍스트 지표: 무조건 str(문자열) 타입으로 강제 변환
-    text_cols = ['추세상태', 'OBV 추세']
+    # 3. 텍스트 지표
+    text_cols = ['추세상태', 'OBV추세']
     for col in text_cols:
         if col not in df.columns:
             df[col] = ''
