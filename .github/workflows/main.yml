@@ -3,10 +3,10 @@ name: Daily Asset Report Automation
 on:
   schedule:
     # 매일 한국 시간 아침 8시에 자동 실행 (UTC 기준 23시)
-    - cron: '0 23 57 * *' 
+    - cron: '0 23 * * *' 
   workflow_dispatch: # 깃허브에서 수동으로 버튼 눌러서 실행 가능하게 함
 
-# [핵심] 깃허브 액션이 봇(Bot)으로서 파일(index.html)을 덮어쓸 수 있도록 쓰기 권한 부여
+# [핵심] 깃허브 액션이 봇(Bot)으로서 파일(index.html, reports/*.md)을 덮어쓸 수 있도록 쓰기 권한 부여
 permissions:
   contents: write 
 
@@ -27,14 +27,14 @@ jobs:
         run: |
           pip install pandas yfinance gspread oauth2client pyupbit FinanceDataReader pandas_ta requests
 
-      - name: 4. 파이썬 메인 스크립트 실행 (HTML 생성 포함)
+      - name: 4. 파이썬 메인 스크립트 실행 (HTML 및 마크다운 생성 포함)
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
 
-     - name: 5. 변경된 리포트 파일들 자동 커밋
+      - name: 5. 변경된 리포트 파일들 자동 커밋
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "🚀 일일 자산 리포트 및 아카이브 업데이트"
