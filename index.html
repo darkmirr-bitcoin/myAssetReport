@@ -1,180 +1,70 @@
 
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>일일 자산관리 리포트</title>
-    
-<style>
-    body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; }
-    h2 { color: #333; }
-    table { border-collapse: collapse; width: 100%; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-    th, td { border: 1px solid #ddd; padding: 12px; text-align: right; font-size: 14px; }
-    th { background-color: #4CAF50; color: white; text-align: center; }
-    tr:nth-child(even) { background-color: #f2f2f2; }
-    .positive { color: red; font-weight: bold; }
-    .negative { color: blue; font-weight: bold; }
-</style>
-
-</head>
-<body>
-    <h2>📊 일일 자산관리 리포트</h2>
-    <p>업데이트 시간: 2026-04-01 10:37:19</p>
-    <table border="1" class="dataframe asset-table">
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head><meta charset="UTF-8"><title>내 자산 자동 리포트</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; }
+        h2 { color: #333; }
+        .summary-box { background-color: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: right; font-size: 15px; }
+        th { background-color: #4CAF50; color: white; text-align: center; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        td:first-child { text-align: center; font-weight: bold; }
+    </style>
+    </head>
+    <body>
+        <h2>📊 일일 자산 요약 리포트</h2>
+        <div class="summary-box">
+            <p>🕒 <strong>업데이트 시간:</strong> 2026-04-01 14:28:55 (KST)</p>
+            <p>💵 <strong>적용 환율:</strong> 1달러 = 1,507.98원</p>
+        </div>
+        <table border="1" class="dataframe asset-table">
   <thead>
     <tr style="text-align: right;">
-      <th>구분</th>
-      <th>티커</th>
-      <th>매수가($)</th>
-      <th>수량</th>
-      <th>현재가($)</th>
-      <th>평가손익($)</th>
+      <th>자산군</th>
+      <th>투자원금(₩)</th>
+      <th>평가금액(₩)</th>
+      <th>평가손익(₩)</th>
       <th>수익률(%)</th>
-      <th>평가금액($)</th>
+      <th>전일대비 변동폭(₩)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>해외주식</td>
-      <td>NVDA</td>
-      <td>171.65</td>
-      <td>68.00</td>
-      <td>0.00</td>
-      <td>-11672.20</td>
-      <td>-100.00</td>
-      <td>0.00</td>
+      <td>해외주식 (USD 변환)</td>
+      <td>₩42,987,608</td>
+      <td>₩39,358,880</td>
+      <td>₩-3,628,727</td>
+      <td><span style='color:blue; font-weight:bold;'>-8.44%</span></td>
+      <td>₩0</td>
     </tr>
     <tr>
-      <td>해외주식</td>
-      <td>AVGO</td>
-      <td>332.09</td>
-      <td>25.00</td>
-      <td>0.00</td>
-      <td>-8302.25</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>해외주식</td>
       <td>COIN</td>
-      <td>255.15</td>
-      <td>20.00</td>
-      <td>0.00</td>
-      <td>-5103.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
+      <td>₩31,784,533</td>
+      <td>₩11,546,339</td>
+      <td>₩-20,238,194</td>
+      <td><span style='color:blue; font-weight:bold;'>-63.67%</span></td>
+      <td>₩0</td>
     </tr>
     <tr>
-      <td>해외주식</td>
-      <td>MSTR</td>
-      <td>139.59</td>
-      <td>20.00</td>
-      <td>0.00</td>
-      <td>-2791.80</td>
-      <td>-100.00</td>
-      <td>0.00</td>
+      <td>개인연금</td>
+      <td>₩26,467,632</td>
+      <td>₩31,154,095</td>
+      <td>₩4,686,463</td>
+      <td><span style='color:red; font-weight:bold;'>+17.71%</span></td>
+      <td>₩0</td>
     </tr>
     <tr>
-      <td>해외주식</td>
-      <td>VIXY</td>
-      <td>42.50</td>
-      <td>15.00</td>
-      <td>0.00</td>
-      <td>-637.50</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>코인</td>
-      <td>SOL</td>
-      <td>350609.00</td>
-      <td>80.00</td>
-      <td>0.00</td>
-      <td>-28048720.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>코인</td>
-      <td>SUI</td>
-      <td>5466.00</td>
-      <td>298.00</td>
-      <td>0.00</td>
-      <td>-1628868.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>코인</td>
-      <td>BTC</td>
-      <td>128445240.00</td>
-      <td>0.01</td>
-      <td>0.00</td>
-      <td>-1007583.55</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>코인</td>
-      <td>STX</td>
-      <td>2054.00</td>
-      <td>535.23</td>
-      <td>0.00</td>
-      <td>-1099362.42</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>ISA</td>
-      <td>441640(ETF)</td>
-      <td>12712.00</td>
-      <td>400.00</td>
-      <td>0.00</td>
-      <td>-5084800.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>ISA</td>
-      <td>466940(ETF)</td>
-      <td>20649.00</td>
-      <td>265.00</td>
-      <td>0.00</td>
-      <td>-5471985.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>연금저축</td>
-      <td>133690(ETF)</td>
-      <td>156265.00</td>
-      <td>17.00</td>
-      <td>0.00</td>
-      <td>-2656505.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>연금저축</td>
-      <td>360750(ETF)</td>
-      <td>20268.00</td>
-      <td>437.00</td>
-      <td>0.00</td>
-      <td>-8857116.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
-    </tr>
-    <tr>
-      <td>연금저축</td>
-      <td>411060(ETF)</td>
-      <td>23641.00</td>
-      <td>186.00</td>
-      <td>0.00</td>
-      <td>-4397226.00</td>
-      <td>-100.00</td>
-      <td>0.00</td>
+      <td>총 자산</td>
+      <td>₩101,239,774</td>
+      <td>₩82,059,314</td>
+      <td>₩-19,180,459</td>
+      <td><span style='color:blue; font-weight:bold;'>-18.95%</span></td>
+      <td>₩0</td>
     </tr>
   </tbody>
 </table>
-</body>
-</html>
+    </body>
+    </html>
+    
