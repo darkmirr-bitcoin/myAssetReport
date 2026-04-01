@@ -22,10 +22,10 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-
+          
       - name: 3. 필요한 파이썬 라이브러리 설치
         run: |
-          pip install pandas yfinance gspread oauth2client pyupbit FinanceDataReader pandas_ta requests
+          pip install pandas yfinance gspread oauth2client pyupbit finance-datareader pandas_ta requests
 
       - name: 4. 파이썬 메인 스크립트 실행 (HTML 및 마크다운 생성 포함)
         env:
