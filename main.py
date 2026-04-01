@@ -22,6 +22,12 @@ def main():
     sheet_manager = GoogleSheetManager(SPREADSHEET_ID)
     df = sheet_manager.get_data()
     
+    # [핵심 수정 1] 시트에 MACD, OBV 등 새 컬럼이 없으면 미리 만들어두기 (안 그러면 아래 루프에서 무시됨)
+    new_cols = ['MACD', 'OBV', '거래강도(%)']
+    for col in new_cols:
+        if col not in df.columns:
+            df[col] = ''
+
     # 1. 숫자 데이터 전처리
     df['매수가($)'] = pd.to_numeric(df['매수가($)'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
@@ -44,24 +50,19 @@ def main():
     # 3. 수익률 및 평가금액 계산 (통화 컬럼 반영)
     df['현재가($)'] = pd.to_numeric(df['현재가($)'], errors='coerce').fillna(0)
     
-    # 평가금액 및 평가손익 계산 (해당 종목의 로컬 통화 기준)
-    df['평가금액($)'] = df['현재가($)'] * df['수량']
-    df['평가손익($)'] = (df['현재가($)'] - df['매수가($)']) * df['수량']
+    # [핵심 수정 2] 평가금액 및 평가손익 계산 시 소수점 날리기 (.round(0) 적용)
+    df['평가금액($)'] = (df['현재가($)'] * df['수량']).round(0)
+    df['평가손익($)'] = ((df['현재가($)'] - df['매수가($)']) * df['수량']).round(0)
     
-    # 수익률(%) 계산 (같은 통화끼리의 계산이므로 환율 무관하게 정확함)
+    # [핵심 수정 3] 수익률(%) 계산 시 * 100 제거 (구글 시트의 % 서식과 충돌하여 뻥튀기되는 현상 방지)
     df['수익률(%)'] = df.apply(
-        lambda x: ((x['현재가($)'] - x['매수가($)']) / x['매수가($)'] * 100) if x['매수가($)'] > 0 else 0, 
+        lambda x: ((x['현재가($)'] - x['매수가($)']) / x['매수가($)']) if x['매수가($)'] > 0 else 0, 
         axis=1
     )
 
     # 4. 시트 업데이트 및 저장
     sheet_manager.update_main_sheet(df)
     sheet_manager.append_history(df)
-
-  # === (위쪽 시트 업데이트 로직은 그대로 유지) ===
-    # sheet_manager.update_main_sheet(df)
-    # sheet_manager.append_history(df)
-    # ===============================================
 
     print("4. HTML 리포트 생성 중...")
     
@@ -89,11 +90,11 @@ def main():
         if col in df_html.columns:
             df_html[col] = df_html.apply(lambda r: format_currency(r, col), axis=1)
 
-    # 수익률 컬럼 포맷팅 (플러스는 빨간색, 마이너스는 파란색 처리)
+    # [핵심 수정 4] HTML 리포트용 수익률 표기 시 다시 * 100 처리
     if '수익률(%)' in df_html.columns:
         df_html['수익률(%)'] = df_html['수익률(%)'].apply(
-            lambda x: f"<span style='color:red; font-weight:bold;'>+{float(x):.2f}%</span>" if float(x) > 0 
-            else f"<span style='color:blue; font-weight:bold;'>{float(x):.2f}%</span>" if float(x) < 0 
+            lambda x: f"<span style='color:red; font-weight:bold;'>+{(float(x) * 100):.2f}%</span>" if float(x) > 0 
+            else f"<span style='color:blue; font-weight:bold;'>{(float(x) * 100):.2f}%</span>" if float(x) < 0 
             else "0.00%"
         )
 
