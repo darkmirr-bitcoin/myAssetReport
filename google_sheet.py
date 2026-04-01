@@ -17,13 +17,24 @@ class GoogleSheetManager:
         self.client = gspread.authorize(creds)
         self.doc = self.client.open_by_key(spreadsheet_id)
 
-    def get_sheet_data(self, sheet_name):
-        """특정 탭(시트)의 데이터를 가져옴"""
+   def get_sheet_data(self, sheet_name):
+        """특정 탭(시트)의 데이터를 가져옴 (빈칸/중복 헤더 에러 방지)"""
         try:
             worksheet = self.doc.worksheet(sheet_name)
-            df = pd.DataFrame(worksheet.get_all_records())
-            df.columns = df.columns.str.strip()
+            # get_all_records() 대신 get_all_values()를 써서 헤더 에러를 피함
+            values = worksheet.get_all_values()
+            
+            if not values:
+                return pd.DataFrame(), worksheet
+                
+            # 첫 번째 줄을 헤더로, 나머지를 데이터로 사용
+            df = pd.DataFrame(values[1:], columns=values[0])
+            
+            # 빈 문자열 헤더 처리 (중복 방지)
+            df.columns = [str(col).strip() if str(col).strip() != '' else f"Unnamed_{i}" for i, col in enumerate(df.columns)]
+            
             return df, worksheet
+            
         except gspread.exceptions.WorksheetNotFound:
             print(f"⚠️ '{sheet_name}' 탭을 찾을 수 없어. 구글 시트에 탭을 만들어줘!")
             return pd.DataFrame(), None
