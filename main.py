@@ -22,17 +22,18 @@ def main():
     sheet_manager = GoogleSheetManager(SPREADSHEET_ID)
     df = sheet_manager.get_data()
     
-# ============== [이 부분을 찾아서] ==============
-    # [핵심 수정 1] 시트에 MACD, OBV 등 새 컬럼이 없으면 미리 만들어두기 (안 그러면 아래 루프에서 무시됨)
-    new_cols = ['MACD', 'OBV', '거래강도(%)']
-    for col in new_cols:
-        if col not in df.columns:
-            df[col] = ''
-
-    # 1. 숫자 데이터 전처리
+    # 1. 숫자 데이터 전처리 및 지표 컬럼 숫자형(float) 세팅
     df['매수가($)'] = pd.to_numeric(df['매수가($)'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-    # ================================================
+
+    # 지표가 들어갈 컬럼들은 텍스트로 인식되지 않게 무조건 숫자형으로 미리 뚫어둬야 해
+    indicator_cols = ['RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'OBV', '거래강도(%)']
+    for col in indicator_cols:
+        if col not in df.columns:
+            df[col] = 0.0  # 빈 문자열('') 대신 0.0으로 초기화해서 숫자형 보장
+        else:
+            # 기존 시트가 빈칸이라 문자열로 굳어버린 컬럼도 강제로 숫자형으로 변환
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
     # 2. 종목별 루프 (가격 및 지표 업데이트)
     for index, row in df.iterrows():
         ticker = str(row['티커']).strip()
