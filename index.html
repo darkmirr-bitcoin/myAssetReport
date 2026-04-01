@@ -1,461 +1,180 @@
 
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head><meta charset="UTF-8"><title>일일 자산 리포트</title>
-    <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; }
-        h2 { color: #333; }
-        table { border-collapse: collapse; width: 100%; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: right; font-size: 14px; }
-        th { background-color: #4CAF50; color: white; text-align: center; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-    </style>
-    </head>
-    <body>
-        <h2>📊 일일 자산 리포트</h2>
-        <p>업데이트: 2026-04-01 13:20:34</p>
-        <p>적용 환율: 1달러 = 1,511.68원</p>
-        <table border="1" class="dataframe asset-table">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>일일 자산관리 리포트</title>
+    
+<style>
+    body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; }
+    h2 { color: #333; }
+    table { border-collapse: collapse; width: 100%; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: right; font-size: 14px; }
+    th { background-color: #4CAF50; color: white; text-align: center; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    .positive { color: red; font-weight: bold; }
+    .negative { color: blue; font-weight: bold; }
+</style>
+
+</head>
+<body>
+    <h2>📊 일일 자산관리 리포트</h2>
+    <p>업데이트 시간: 2026-04-01 10:37:19</p>
+    <table border="1" class="dataframe asset-table">
   <thead>
     <tr style="text-align: right;">
       <th>구분</th>
       <th>티커</th>
       <th>매수가($)</th>
-      <th>통화</th>
       <th>수량</th>
       <th>현재가($)</th>
-      <th>평가손익</th>
+      <th>평가손익($)</th>
       <th>수익률(%)</th>
       <th>평가금액($)</th>
-      <th>종목명</th>
-      <th>추세상태</th>
-      <th>거래량강도(%)</th>
-      <th>OBV추세</th>
-      <th>MACD히스토그램</th>
-      <th>RSI</th>
-      <th>PER</th>
-      <th>EMA5</th>
-      <th>EMA20</th>
-      <th>EMA50</th>
-      <th>EMA100</th>
-      <th>BB상단</th>
-      <th>BB하단</th>
-      <th>업데이트시간</th>
-      <th>MACD</th>
-      <th>OBV</th>
-      <th>거래강도(%)</th>
-      <th>평가손익($)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>해외주식</td>
       <td>NVDA</td>
-      <td>$171.65</td>
-      <td>USD</td>
+      <td>171.65</td>
       <td>68.00</td>
-      <td>$174.40</td>
-      <td>187.00</td>
-      <td><span style='color:red; font-weight:bold;'>+1.60%</span></td>
-      <td>$11,859.00</td>
-      <td>NVIDIA Corp</td>
-      <td>안정</td>
-      <td>125</td>
-      <td>⬆️상승</td>
-      <td>-0.84</td>
-      <td>46.00</td>
-      <td>35.62</td>
-      <td>172.00</td>
-      <td>177.00</td>
-      <td>181.00</td>
-      <td>181.00</td>
-      <td>190.00</td>
-      <td>167.00</td>
-      <td>7:48:42</td>
-      <td>-4.00</td>
-      <td>2504259500.00</td>
-      <td>124.00</td>
-      <td>$187.00</td>
+      <td>0.00</td>
+      <td>-11672.20</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>해외주식</td>
       <td>AVGO</td>
-      <td>$332.09</td>
-      <td>USD</td>
+      <td>332.09</td>
       <td>25.00</td>
-      <td>$309.51</td>
-      <td>-564.50</td>
-      <td><span style='color:blue; font-weight:bold;'>-6.80%</span></td>
-      <td>$7,738.00</td>
-      <td>Broadcom Inc</td>
-      <td>⚠️5선밀착</td>
-      <td>100</td>
-      <td>⬆️상승</td>
-      <td>-1.79</td>
-      <td>45.00</td>
-      <td>60.40</td>
-      <td>306.00</td>
-      <td>317.00</td>
-      <td>326.00</td>
-      <td>329.00</td>
-      <td>348.00</td>
-      <td>294.00</td>
-      <td>7:48:42</td>
-      <td>-7.00</td>
-      <td>566146800.00</td>
-      <td>96.00</td>
-      <td>$-564.00</td>
+      <td>0.00</td>
+      <td>-8302.25</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>해외주식</td>
       <td>COIN</td>
-      <td>$255.15</td>
-      <td>USD</td>
+      <td>255.15</td>
       <td>20.00</td>
-      <td>$174.61</td>
-      <td>-1610.80</td>
-      <td><span style='color:blue; font-weight:bold;'>-31.57%</span></td>
-      <td>$3,492.00</td>
-      <td>Coinbase Global Inc</td>
-      <td>안정</td>
-      <td>99</td>
-      <td>⬆️상승</td>
-      <td>-3.50</td>
-      <td>44.00</td>
-      <td>39.79</td>
-      <td>172.00</td>
-      <td>184.00</td>
-      <td>196.00</td>
-      <td>220.00</td>
-      <td>222.00</td>
-      <td>162.00</td>
-      <td>7:49:36</td>
-      <td>-5.00</td>
-      <td>4375000.00</td>
-      <td>99.00</td>
-      <td>$-1,611.00</td>
+      <td>0.00</td>
+      <td>-5103.00</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>해외주식</td>
       <td>MSTR</td>
-      <td>$139.59</td>
-      <td>USD</td>
+      <td>139.59</td>
       <td>20.00</td>
-      <td>$124.80</td>
-      <td>-295.80</td>
-      <td><span style='color:blue; font-weight:bold;'>-10.60%</span></td>
-      <td>$2,496.00</td>
-      <td>Strategy Inc Class A</td>
-      <td>안정</td>
-      <td>101</td>
-      <td>💥강한하락</td>
-      <td>-1.35</td>
-      <td>41.00</td>
-      <td>-8.20</td>
-      <td>128.00</td>
-      <td>134.00</td>
-      <td>143.00</td>
-      <td>172.00</td>
-      <td>151.00</td>
-      <td>123.00</td>
-      <td>7:49:41</td>
-      <td>-3.00</td>
-      <td>-232647700.00</td>
-      <td>102.00</td>
-      <td>$-296.00</td>
+      <td>0.00</td>
+      <td>-2791.80</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>해외주식</td>
       <td>VIXY</td>
-      <td>$42.50</td>
-      <td>USD</td>
+      <td>42.50</td>
       <td>15.00</td>
-      <td>$34.35</td>
-      <td>-122.25</td>
-      <td><span style='color:blue; font-weight:bold;'>-19.18%</span></td>
-      <td>$515.00</td>
-      <td>ProShares VIX Short-Term Futures ETF</td>
-      <td>안정</td>
-      <td>15</td>
-      <td>⬇️하락</td>
-      <td>0.19</td>
-      <td>55.00</td>
-      <td>-</td>
-      <td>36.00</td>
-      <td>33.00</td>
-      <td>31.00</td>
-      <td>31.00</td>
-      <td>38.00</td>
-      <td>29.00</td>
-      <td>7:49:43</td>
-      <td>2.00</td>
-      <td>42949700.00</td>
-      <td>103.00</td>
-      <td>$-122.00</td>
+      <td>0.00</td>
+      <td>-637.50</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>코인</td>
       <td>SOL</td>
-      <td>₩350,609</td>
-      <td>KRW</td>
+      <td>350609.00</td>
       <td>80.00</td>
-      <td>₩126,200</td>
-      <td>-18024720.00</td>
-      <td><span style='color:blue; font-weight:bold;'>-64.01%</span></td>
-      <td>₩10,096,000</td>
-      <td>솔라나</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>45.00</td>
-      <td></td>
-      <td>126316.00</td>
-      <td>129074.00</td>
-      <td>134618.00</td>
-      <td>155932.00</td>
-      <td>141679.00</td>
-      <td>121251.00</td>
-      <td></td>
-      <td>-1284.00</td>
-      <td>-15537979.00</td>
-      <td>14.00</td>
-      <td>₩-17,952,720</td>
+      <td>0.00</td>
+      <td>-28048720.00</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>코인</td>
       <td>SUI</td>
-      <td>₩5,466</td>
-      <td>KRW</td>
+      <td>5466.00</td>
       <td>298.00</td>
-      <td>₩1,331</td>
-      <td>-1233422.00</td>
-      <td><span style='color:blue; font-weight:bold;'>-75.65%</span></td>
-      <td>₩396,638</td>
-      <td>수이</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>43.00</td>
-      <td></td>
-      <td>1329.00</td>
-      <td>1378.00</td>
-      <td>1479.00</td>
-      <td>1826.00</td>
-      <td>1571.00</td>
-      <td>1253.00</td>
-      <td></td>
-      <td>-32.00</td>
-      <td>-201235329.00</td>
-      <td>18.00</td>
-      <td>₩-1,232,230</td>
+      <td>0.00</td>
+      <td>-1628868.00</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>코인</td>
       <td>BTC</td>
-      <td>₩128,445,240</td>
-      <td>KRW</td>
+      <td>128445240.00</td>
       <td>0.01</td>
-      <td>₩103,017,000</td>
-      <td>-202098.71</td>
-      <td><span style='color:blue; font-weight:bold;'>-19.80%</span></td>
-      <td>₩808,113</td>
-      <td>비트코인</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>49.00</td>
-      <td></td>
-      <td>102514872.00</td>
-      <td>103156368.00</td>
-      <td>105455147.00</td>
-      <td>114102262.00</td>
-      <td>109559986.00</td>
-      <td>99196114.00</td>
-      <td></td>
-      <td>-340842.00</td>
-      <td>-65701.00</td>
-      <td>15.00</td>
-      <td>₩-199,471</td>
+      <td>0.00</td>
+      <td>-1007583.55</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>코인</td>
       <td>STX</td>
-      <td>₩2,054</td>
-      <td>KRW</td>
+      <td>2054.00</td>
       <td>535.23</td>
-      <td>₩341</td>
-      <td>-918454.68</td>
-      <td><span style='color:blue; font-weight:bold;'>-83.40%</span></td>
-      <td>₩182,513</td>
-      <td>스택스</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>40.00</td>
-      <td></td>
-      <td>340.00</td>
-      <td>355.00</td>
-      <td>375.00</td>
-      <td>421.00</td>
-      <td>399.00</td>
-      <td>321.00</td>
-      <td></td>
-      <td>-12.00</td>
-      <td>-83029291.00</td>
-      <td>12.00</td>
-      <td>₩-916,849</td>
+      <td>0.00</td>
+      <td>-1099362.42</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>ISA</td>
       <td>441640(ETF)</td>
-      <td>₩12,712</td>
-      <td>KRW</td>
+      <td>12712.00</td>
       <td>400.00</td>
-      <td>₩12,805</td>
-      <td>41200.00</td>
-      <td><span style='color:red; font-weight:bold;'>+0.73%</span></td>
-      <td>₩5,122,000</td>
-      <td>KODEX미국배당커버드콜액티브</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>53.00</td>
-      <td></td>
-      <td>12748.00</td>
-      <td>12748.00</td>
-      <td>12703.00</td>
-      <td>12491.00</td>
-      <td>12977.00</td>
-      <td>12570.00</td>
-      <td></td>
-      <td>-6.00</td>
-      <td>21638536.00</td>
-      <td>87.00</td>
-      <td>₩37,200</td>
+      <td>0.00</td>
+      <td>-5084800.00</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>ISA</td>
       <td>466940(ETF)</td>
-      <td>₩20,649</td>
-      <td>KRW</td>
+      <td>20649.00</td>
       <td>265.00</td>
-      <td>₩24,985</td>
-      <td>1126515.00</td>
-      <td><span style='color:red; font-weight:bold;'>+21.00%</span></td>
-      <td>₩6,621,025</td>
-      <td>TIGER 은행고배당플러스 TOP10</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>49.00</td>
-      <td></td>
-      <td>24750.00</td>
-      <td>25093.00</td>
-      <td>24622.00</td>
-      <td>23263.00</td>
-      <td>26011.00</td>
-      <td>23963.00</td>
-      <td></td>
-      <td>-169.00</td>
-      <td>25972243.00</td>
-      <td>58.00</td>
-      <td>₩1,149,040</td>
+      <td>0.00</td>
+      <td>-5471985.00</td>
+      <td>-100.00</td>
+      <td>0.00</td>
     </tr>
     <tr>
       <td>연금저축</td>
       <td>133690(ETF)</td>
-      <td>₩156,265</td>
-      <td>KRW</td>
+      <td>156265.00</td>
       <td>17.00</td>
-      <td>₩158,990</td>
-      <td>46325.00</td>
-      <td><span style='color:red; font-weight:bold;'>+1.74%</span></td>
-      <td>₩2,702,830</td>
-      <td>TIGER 미국나스닥100</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
       <td>0.00</td>
-      <td></td>
+      <td>-2656505.00</td>
+      <td>-100.00</td>
       <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td></td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>₩46,325</td>
     </tr>
     <tr>
       <td>연금저축</td>
       <td>360750(ETF)</td>
-      <td>₩20,268</td>
-      <td>KRW</td>
+      <td>20268.00</td>
       <td>437.00</td>
-      <td>₩24,475</td>
-      <td>1838459.00</td>
-      <td><span style='color:red; font-weight:bold;'>+20.76%</span></td>
-      <td>₩10,695,575</td>
-      <td>TIGER 미국S&P500</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
       <td>0.00</td>
-      <td></td>
+      <td>-8857116.00</td>
+      <td>-100.00</td>
       <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td></td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>₩1,838,459</td>
     </tr>
     <tr>
       <td>연금저축</td>
       <td>411060(ETF)</td>
-      <td>₩23,641</td>
-      <td>KRW</td>
+      <td>23641.00</td>
       <td>186.00</td>
-      <td>₩31,885</td>
-      <td>1533384.00</td>
-      <td><span style='color:red; font-weight:bold;'>+34.87%</span></td>
-      <td>₩5,930,610</td>
-      <td>ACE KRX금현물</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
       <td>0.00</td>
-      <td></td>
+      <td>-4397226.00</td>
+      <td>-100.00</td>
       <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td></td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>0.00</td>
-      <td>₩1,533,384</td>
     </tr>
   </tbody>
 </table>
-    </body>
-    </html>
-    
+</body>
+</html>
