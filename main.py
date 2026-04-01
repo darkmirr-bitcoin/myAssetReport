@@ -129,7 +129,6 @@ def main():
     def get_diff(current_val, history_key):
         if last_history is not None and history_key in last_history:
             try:
-                # 콤마 제거 후 숫자로 변환
                 past_val = float(str(last_history[history_key]).replace(',', ''))
                 return current_val - past_val
             except: pass
@@ -139,44 +138,3 @@ def main():
     diff_coin = get_diff(coin_eval_krw, 'COIN(₩)')
     diff_pen = get_diff(pen_eval_krw, '개인연금(₩)')
     diff_total = get_diff(total_eval_krw, '총자산(₩)')
-
-    # ---------------------------------------------------------
-    # 4. Today 탭 데이터 생성 및 업데이트
-    # ---------------------------------------------------------
-    today_data = {
-        '자산군': ['해외주식 (USD 변환)', 'COIN', '개인연금', '총 자산'],
-        '투자원금(₩)': [round(us_invest_krw, 0), round(coin_invest_krw, 0), round(pen_invest_krw, 0), round(total_invest_krw, 0)],
-        '평가금액(₩)': [round(us_eval_krw, 0), round(coin_eval_krw, 0), round(pen_eval_krw, 0), round(total_eval_krw, 0)],
-        '평가손익(₩)': [round(us_eval_krw - us_invest_krw, 0), round(coin_eval_krw - coin_invest_krw, 0), round(pen_eval_krw - pen_invest_krw, 0), round(total_eval_krw - total_invest_krw, 0)],
-        '수익률(%)': [
-            (us_eval_krw - us_invest_krw) / us_invest_krw if us_invest_krw > 0 else 0,
-            (coin_eval_krw - coin_invest_krw) / coin_invest_krw if coin_invest_krw > 0 else 0,
-            (pen_eval_krw - pen_invest_krw) / pen_invest_krw if pen_invest_krw > 0 else 0,
-            (total_eval_krw - total_invest_krw) / total_invest_krw if total_invest_krw > 0 else 0
-        ],
-        '전일대비 변동폭(₩)': [round(diff_us, 0), round(diff_coin, 0), round(diff_pen, 0), round(diff_total, 0)]
-    }
-    
-    df_today = pd.DataFrame(today_data)
-    _, ws_today = sheet_manager.get_sheet_data('Today')
-    if ws_today:
-        sheet_manager.update_sheet(ws_today, df_today)
-        print("✅ Today 탭 요약 완료!")
-
-    # ---------------------------------------------------------
-    # 5. History 탭 데이터 누적
-    # ---------------------------------------------------------
-    history_row = {
-        '일자': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        '적용환율': round(exchange_rate, 2),
-        '해외주식(₩)': round(us_eval_krw, 0),
-        'COIN(₩)': round(coin_eval_krw, 0),
-        '개인연금(₩)': round(pen_eval_krw, 0),
-        '총자산(₩)': round(total_eval_krw, 0)
-    }
-    sheet_manager.append_to_history(history_row)
-    
-    print("🚀 모든 작업이 성공적으로 끝났어!")
-
-if __name__ == "__main__":
-    main()
