@@ -16,6 +16,22 @@ def get_exchange_rate():
 def process_asset_df(df, category, is_usd=False):
     if df.empty: return df, 0, 0
     
+    # [핵심 수정] 시트에 '매수가($)'나 '매수가(₩)'로 되어있어도 알아서 '매수가'로 통일해서 인식
+    rename_dict = {}
+    for col in df.columns:
+        col_str = str(col).strip()
+        if '매수가' in col_str: rename_dict[col] = '매수가'
+        elif '현재가' in col_str: rename_dict[col] = '현재가'
+        elif '수량' in col_str: rename_dict[col] = '수량'
+        elif '티커' in col_str or '종목' in col_str: rename_dict[col] = '티커'
+        
+    df.rename(columns=rename_dict, inplace=True)
+
+    # 혹시라도 필수 컬럼이 아예 누락됐을 경우 에러 방지용으로 빈 칸 생성
+    if '매수가' not in df.columns: df['매수가'] = 0
+    if '수량' not in df.columns: df['수량'] = 0
+    if '티커' not in df.columns: df['티커'] = ''
+
     # 숫자형 전처리 및 지표 컬럼 초기화
     df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
     df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
@@ -41,6 +57,23 @@ def process_asset_df(df, category, is_usd=False):
             for col, val in ind_data.items():
                 if col in df.columns:
                     df.at[index, col] = val
+
+    # 평가금액 및 손익 계산
+    if is_usd:
+        df['평가금액(USD)'] = (df['현재가'] * df['수량']).round(2)
+        df['평가손익(USD)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(2)
+        invest_total = (df['매수가'] * df['수량']).sum()
+        eval_total = df['평가금액(USD)'].sum()
+    else:
+        df['평가금액(KRW)'] = (df['현재가'] * df['수량']).round(0)
+        df['평가손익(KRW)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(0)
+        invest_total = (df['매수가'] * df['수량']).sum()
+        eval_total = df['평가금액(KRW)'].sum()
+        
+    # 구글 시트 % 서식 충돌 방지 (* 100 제거)
+    df['수익률'] = df.apply(lambda x: (x['현재가'] - x['매수가']) / x['매수가'] if x['매수가'] > 0 else 0, axis=1)
+    
+    return df, invest_total, eval_total
 
     # 평가금액 및 손익 계산
     if is_usd:
