@@ -62,16 +62,16 @@ def calculate_indicators(df_hist):
             h_col = [c for c in macd_df.columns if c.startswith('MACDh')]
             if h_col: macd_h = get_val(macd_df[h_col[0]], 2)
 
-        res = {
+       res = {
             '현재가($)': current_price,
             '추세상태': trend_status,
             'RSI': get_val(rsi),
             'EMA20': current_ema20,
             'MACD': get_val(macd_df['MACD_12_26_9'] if macd_df is not None else None, 2),
-            'MACD 히스토그램': macd_h,
+            'MACD히스토그램': macd_h,       # 띄어쓰기 없앰
             'OBV': get_val(obv),
-            'OBV 추세': obv_trend,
-            '거래강도(%)': get_val(vol_strength)
+            'OBV추세': obv_trend,          # 띄어쓰기 없앰
+            '거래량강도(%)': get_val(vol_strength) # '거래강도'를 '거래량강도'로 변경
         }
         return res
     except Exception as e:
