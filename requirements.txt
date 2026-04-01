@@ -4,3 +4,5 @@ pandas
 yfinance
 finance-datareader
 pyupbit
+requests
+pandas-ta 
