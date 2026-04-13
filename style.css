@@ -86,3 +86,52 @@ table tr:last-child td {
     table { font-size: 13px; }
     th, td { padding: 10px; }
 }
+
+/* --- [새로 추가된 연관 리포트 버튼 스타일] --- */
+.report-links {
+    max-width: 1000px;
+    margin: 40px auto 20px auto;
+    text-align: center;
+}
+
+.report-links h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 20px;
+}
+
+.link-cards {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap; /* 모바일에서 화면 좁아지면 자동으로 밑으로 내려감 */
+}
+
+.link-card {
+    display: flex;
+    align-items: center;
+    background-color: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #34495e;
+    font-weight: bold;
+    font-size: 16px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border: 1px solid #ebf0f1;
+    transition: all 0.3s ease; /* 부드러운 애니메이션 */
+}
+
+/* 마우스 올렸을 때 효과 */
+.link-card:hover {
+    transform: translateY(-5px); /* 살짝 위로 떠오름 */
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    background-color: #3498db; /* 파란색으로 변환 */
+    color: white;
+    border-color: #3498db;
+}
+
+.link-card .icon {
+    font-size: 24px;
+    margin-right: 12px;
+}
