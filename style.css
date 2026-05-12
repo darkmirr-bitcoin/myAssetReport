@@ -135,3 +135,59 @@ table tr:last-child td {
     font-size: 24px;
     margin-right: 12px;
 }
+/* --- [매크로 대시보드 스타일] --- */
+.macro-dashboard {
+    max-width: 1000px;
+    margin: 0 auto 40px auto;
+}
+
+.macro-dashboard h3 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+.macro-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.macro-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border: 1px solid #ebf0f1;
+}
+
+.macro-card h4 {
+    margin-top: 0;
+    color: #34495e;
+    font-size: 16px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    display: inline-block;
+}
+
+.macro-card ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.macro-card li {
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.5;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #ecf0f1;
+}
+
+.macro-card li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
