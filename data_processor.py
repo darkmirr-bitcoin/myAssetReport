@@ -39,7 +39,6 @@ def process_asset_df(df, category, is_usd=False, is_open=True):
     """각 시트의 데이터를 읽어와서 지표를 붙이고, 평가손익을 계산하는 핵심 함수"""
     if df.empty: return df, 0.0, 0.0
     
-    # 1. 중복 열 방어 및 이름 통일
     df = df.loc[:, ~df.columns.duplicated()].copy()
     rename_dict = {}
     for col in df.columns:
@@ -56,26 +55,30 @@ def process_asset_df(df, category, is_usd=False, is_open=True):
     if '수량' not in df.columns: df['수량'] = 0.0
     if '티커' not in df.columns: df['티커'] = ''
 
-    df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0.0)
-    df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(',', ''), errors='coerce').fillna(0.0)
+    # [핵심 수정 1] 콤마(,) 완벽 제거! (기존 데이터 읽을 때 에러 방지)
+    df['매수가'] = pd.to_numeric(df['매수가'].astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce').fillna(0.0)
+    df['수량'] = pd.to_numeric(df['수량'].astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce').fillna(0.0)
     
-    # 2. 지표 컬럼 타입 세팅
     num_cols = ['현재가', 'RSI', 'EMA5', 'EMA20', 'EMA50', 'EMA100', 'BB상단', 'BB하단', 'MACD', 'MACD히스토그램', 'OBV', '거래량강도(%)']
     for col in num_cols:
         if col not in df.columns: df[col] = 0.0
-        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0).astype(float)
+        # 구글 시트에 있는 '현재가'에 콤마가 있어도 0원이 되지 않도록 안전하게 변환
+        df[col] = pd.to_numeric(df[col].astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce').fillna(0.0).astype(float)
 
     text_cols = ['추세상태', 'OBV추세']
     for col in text_cols:
         if col not in df.columns: df[col] = ''
         df[col] = df[col].astype(str)
 
-    # 3. 휴장일이 아닐 때만 API를 호출하여 데이터 업데이트
-    if is_open:
-        for index, row in df.iterrows():
-            ticker = str(row.get('티커', '')).strip()
-            if not ticker or ticker == 'nan': continue
-                
+    if not is_open:
+        print(f"💤 [{category}] 현지 시장 휴일입니다. 기존 시트 데이터를 유지합니다.")
+
+    # [핵심 수정 2] 휴장일이더라도 현재가가 0원이면(주말에 새로 샀을 때 등) 전 영업일 데이터를 강제로 한 번 긁어옴!
+    for index, row in df.iterrows():
+        ticker = str(row.get('티커', '')).strip()
+        if not ticker or ticker == 'nan': continue
+            
+        if is_open or df.at[index, '현재가'] == 0.0:
             df_hist = fetch_history_data(category, ticker)
             ind_data = calculate_indicators(df_hist)
             
@@ -86,10 +89,8 @@ def process_asset_df(df, category, is_usd=False, is_open=True):
                 for col, val in ind_data.items():
                     if col in df.columns:
                         df.at[index, col] = val
-    else:
-        print(f"💤 [{category}] 현지 시장 휴일입니다. API 호출을 생략하고 기존 시트 데이터를 유지합니다.")
 
-    # 4. 평가금액 및 총합 계산 (휴장일이어도 기존 가격 * 현재 수량 * 환율로 KST 자산은 계속 업데이트 됨)
+    # 평가금액 및 총합 계산
     if is_usd:
         df['평가금액(USD)'] = (df['현재가'] * df['수량']).round(2)
         df['평가손익(USD)'] = ((df['현재가'] - df['매수가']) * df['수량']).round(2)
