@@ -5,4 +5,5 @@ yfinance
 finance-datareader
 pyupbit
 requests
-pandas-ta 
+pandas-ta
+feedparser
