@@ -191,3 +191,10 @@ table tr:last-child td {
     margin-bottom: 0;
     padding-bottom: 0;
 }
+.ai-summary-line {
+    margin-top: 15px;
+    padding-top: 12px;
+    border-top: 1px dashed #ecf0f1;
+    font-size: 15px;
+    line-height: 1.5;
+}
