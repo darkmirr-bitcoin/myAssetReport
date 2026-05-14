@@ -3,16 +3,29 @@ import os
 import re
 
 def format_macro_text(text):
-    """단순 텍스트를 HTML 리스트(li) 태그로 예쁘게 감싸주는 함수"""
+    """단순 텍스트를 HTML 리스트(li) 태그로 예쁘게 감싸주는 함수 (태그 충돌 방지)"""
     if not text: return "<li>데이터 없음</li>"
+    
+    # 텍스트를 줄 단위로 분리
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     html_out = ""
+    
     for line in lines:
-        if line.startswith('- '): line = line[2:] # 앞의 빼기 기호 제거
-        # 상승/하락 기호에 색상 입히기 (선택 사항)
+        # [핵심] AI 요약처럼 이미 HTML 태그(<br>, <strong> 등)가 들어간 줄은 <li>로 감싸지 않음!
+        if '<br>' in line or '<strong>' in line:
+            html_out += f"<div class='ai-summary-line'>{line}</div>"
+            continue
+            
+        # --- (이하 기존 로직 완벽 유지) ---
+        if line.startswith('- '): 
+            line = line[2:] # 앞의 빼기 기호 제거
+            
+        # 상승/하락 기호에 색상 입히기 (정규식)
         line = re.sub(r'(\+[0-9.,]+%?p?)', r'<span class="pos">\1</span>', line)
         line = re.sub(r'(-[0-9.,]+%?p?)', r'<span class="neg">\1</span>', line)
+        
         html_out += f"<li>{line}</li>"
+        
     return html_out
 
 def generate_reports(df_today, exchange_rate, macro_data=None):
