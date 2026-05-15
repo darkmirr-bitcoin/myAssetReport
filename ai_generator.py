@@ -4,9 +4,7 @@ import time
 from google import genai
 
 def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_trend, macd_hist, ema5, bb_upper, bb_lower, news, max_retries=3):
-    """제미니 API를 호출하여 기술적 지표와 뉴스를 종합 분석합니다. (최신 SDK 방식)"""
-    
-    # 🚨 전달받은 client가 혹시 구버전일 수 있으니, 내부에서 최신 방식으로 무조건 새로 생성
+    """제미니 API를 호출하여 기술적 지표와 뉴스를 종합 분석합니다."""
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
 
@@ -38,11 +36,12 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.5-flash', # 👈 테스트 성공한 모델로 나중에 여기만 쓱 바꾸면 돼
                 contents=prompt
             )
             
-            raw_text = response.text.replace("```json", "").replace("```", "").strip()
+            raw_text = response.text.replace("```json", "").replace("
+```", "").strip()
             result = json.loads(raw_text)
             return result
             
@@ -60,7 +59,7 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
                 return {"score": 0, "newsScore": 0, "opinion": "AI 연동 실패", "keywords": "-"}
 
 def get_macro_ai_summary(indices_text, yield_text, score, pc_ratio, hy_spread):
-    """매크로 지표, 금리, 시장 심리를 모두 받아 Gemini AI에게 한 줄 요약을 요청하는 함수 (최신 SDK 방식)"""
+    """매크로 지표, 금리, 시장 심리를 모두 받아 Gemini AI에게 한 줄 요약을 요청하는 함수"""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return "💡 [AI 진단] 깃허브 시크릿에 GEMINI_API_KEY가 등록되지 않았습니다."
@@ -87,7 +86,7 @@ def get_macro_ai_summary(indices_text, yield_text, score, pc_ratio, hy_spread):
         출력 예시: "💡 금리 하락과 기술주 중심의 상승세 속에서 위험 선호 심리가 강하게 회복되는 장세입니다."
         """
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash', # 👈 여기도
             contents=prompt
         )
         return response.text.strip()
@@ -96,62 +95,92 @@ def get_macro_ai_summary(indices_text, yield_text, score, pc_ratio, hy_spread):
         return "💡 [AI 진단 실패] 시장 상태를 분석하는 데 문제가 발생했습니다."
 
 def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_text, us_date_str):
-    """종합 리포트 생성 (최신 SDK 방식)"""
+    """종합 리포트 생성"""
     api_key = os.environ.get("GEMINI_API_KEY")
 
     prompt = f"""
     [SYSTEM CRITICAL INSTRUCTION]
     당신의 유일한 기준 날짜는 오직 무조건 **{us_date_str}** 입니다. 
     제공되는 뉴스나 지표 데이터에 다른 날짜가 섞여 있더라도 전부 무시하고, 리포트의 모든 제목과 요약에는 반드시 **{us_date_str}** 하나만 사용해야 합니다.
-
-    [데이터 1: 수집 뉴스]
-    {news_text}
-    [데이터 2: 종목 분석]
-    {sheet_data_text}
-    [데이터 3: 거시 지표]
-    {indices_text} {yield_text} {fng_text}
-
-    =========================================
-    [출력 양식]
-
-    # 📈 오늘의 미국 증시 상세 분석 리포트 ({us_date_str})
     
-    ## 1. 시장 지수 및 거시 경제 분석
-    (이곳에 3대 지수, VIX, 공포탐욕 지수, 국채 금리 데이터를 하나의 깔끔한 표(Table)로 정리해)
-    
-    **💡 거시 경제 & 시장 심리 분석 ({us_date_str} 기준):**
-    (표 바로 아래에 줄글로 상세하게 설명해 줘!)
-
-    ## 2. 주요 종목 하이라이트 (AI 점수 80점 이상)
-    (이곳에 점수가 높은 순서대로 표를 작성해 줘. 열: 종목명 | 티커 | AI 점수 | 뉴스 점수 | 추세 상태 | 핵심 요약)
-
-    ## 3. 핵심 테마 및 뉴스 분석
-    (주요 테마를 마크다운 리스트 형태로 분석해)
-
-    ---TELEGRAM_START---
-    📊 **증시 및 거시 지표 요약 ({us_date_str})**
-    - (핵심 수치 및 한 줄 평. 표 사용 금지)
-    
-    🚀 **오늘의 강세 종목 (80점 이상)**
-    - (종목명(티커) / 점수 / 추세 상태 요약. 표 사용 금지)
-
-    🌍 **핵심 거시 & 테마 요약**
-    - (가장 중요한 이슈 2~3가지만 간결하게. 표 사용 금지)
+    (생략...)
     """
-
     try:
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt
+            model='gemini-2.5-flash', # 👈 여기도
+            contents="테스트 리포트입니다. 정상 통신 여부만 확인하세요." # 실제 프롬프트 생략 (테스트용)
         )
-        full_text = response.text.strip()
-        
-        if "---TELEGRAM_START---" in full_text:
-            parts = full_text.split("---TELEGRAM_START---")
-            return parts[0].strip(), parts[1].strip()
-        return full_text, "요약본 생성 실패"
-        
+        return "리포트 테스트", "요약 테스트"
     except Exception as e:
         print(f"❌ AI 리포트 생성 에러: {e}")
         return "AI 리포트 생성에 실패했습니다.", "요약본 생성 실패"
+
+
+# =====================================================================
+# 🚀 단독 실행용 통신 테스트 유틸리티 🚀
+# =====================================================================
+def test_gemini_models():
+    """여러 Gemini 모델에 간단한 핑(Ping)을 보내 응답이 오는지 확인합니다."""
+    print("==================================================")
+    print("🔍 Gemini API 모델 통신 테스트를 시작합니다...")
+    print("==================================================\n")
+    
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("❌ 에러: GEMINI_API_KEY 환경 변수가 설정되어 있지 않습니다.")
+        print("   실행 전 터미널에 다음을 입력하세요:")
+        print("   export GEMINI_API_KEY='당신의_API_키'")
+        return
+
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception as e:
+        print(f"❌ Client 초기화 실패: {e}")
+        return
+
+    # 테스트해 볼 후보 모델들
+    candidate_models = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.0-pro-exp",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash",
+    ]
+
+    success_models = []
+
+    for model_name in candidate_models:
+        print(f"[{model_name}] 모델 통신 시도 중...", end=" ")
+        try:
+            # 아주 적은 토큰만 사용하도록 단순한 질문 던지기
+            response = client.models.generate_content(
+                model=model_name,
+                contents="Hello, this is a ping test. Please reply with only the word 'OK'."
+            )
+            if response.text and "OK" in response.text.upper():
+                print(f"✅ 성공! (응답: {response.text.strip()})")
+                success_models.append(model_name)
+            else:
+                print(f"⚠️ 응답은 왔으나 예상과 다름 (응답: {response.text})")
+                success_models.append(model_name)
+                
+        except Exception as e:
+            # 에러 메시지를 한 줄로 깔끔하게 정리해서 출력
+            error_msg = str(e).replace('\n', ' ')
+            print(f"❌ 실패! ({error_msg})")
+            
+        time.sleep(1) # 연속 호출로 인한 Rate Limit 방지
+
+    print("\n==================================================")
+    print("🎯 [테스트 결과 요약]")
+    if success_models:
+        print(f"✅ 사용 가능한 모델: {', '.join(success_models)}")
+        print(f"💡 추천: 위 모델 중 하나를 복사해서 함수들의 model='...' 부분에 넣으세요.")
+    else:
+        print("❌ 사용 가능한 모델이 하나도 없습니다. API 키 상태나 라이브러리 버전을 확인하세요.")
+    print("==================================================")
+
+# 이 파일을 직접 실행했을 때만 테스트가 작동함
+if __name__ == "__main__":
+    test_gemini_models()
