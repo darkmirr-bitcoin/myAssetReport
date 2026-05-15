@@ -87,7 +87,7 @@ def get_macro_ai_summary(indices_text, yield_text, score, pc_ratio, hy_spread):
         출력 예시: "💡 금리 하락과 기술주 중심의 상승세 속에서 위험 선호 심리가 강하게 회복되는 장세입니다."
         """
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         return response.text.strip()
@@ -142,7 +142,7 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
     try:
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         full_text = response.text.strip()
