@@ -1,0 +1,25 @@
+name: 🚀 Gemini API 통신 테스트
+
+on:
+  workflow_dispatch: # 수동으로 버튼을 눌렀을 때만 실행되도록 설정
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: 2. 파이썬 환경 세팅
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          
+      - name: 3. 최신 제미나이 라이브러리 설치
+        run: pip install google-genai
+
+      - name: 4. 통신 테스트 스크립트 실행
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python ai_generator.py
