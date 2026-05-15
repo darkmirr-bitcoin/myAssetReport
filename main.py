@@ -16,12 +16,21 @@ def main():
 
     print(f"현재 환율: 1달러 = {exchange_rate:.2f}원")
 
-    # 1. 매크로 데이터 수집
+    # ------------------------------------
+    # 1. 매크로 데이터 수집 (순서 중요!)
+    # ------------------------------------
+    indices_data = get_market_indices()         # 먼저 지수 데이터 수집
+    yields_data = get_treasury_yields()         # 그 다음 금리 데이터 수집
+    
+    # 지수와 금리 데이터를 공포탐욕 함수에 넘겨서 AI가 종합 분석하게 만듦!
+    fng_data = get_fear_and_greed(indices_data, yields_data) 
+
     macro_data = {
-        'indices': get_market_indices(),
-        'yields': get_treasury_yields(),
-        'fng': get_fear_and_greed()
+        'indices': indices_data,
+        'yields': yields_data,
+        'fng': fng_data
     }
+    # ------------------------------------
 
     # 휴장일 체크
     is_us_open = check_market_open('해외주식')
