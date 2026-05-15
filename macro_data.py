@@ -77,8 +77,10 @@ def get_treasury_yields():
     return yield_text
 
 # [핵심 업데이트] CNN 지수 3개(공포탐욕, 풋콜, 스프레드) + AI 연동!
-def get_fear_and_greed():
-    """CNN 실시간 지표 3개 수집 후, ai_generator를 통해 AI 요약을 추가하는 함수"""
+# macro_data.py 내부의 get_fear_and_greed 함수 교체
+
+def get_fear_and_greed(indices_text="", yield_text=""):
+    """CNN 실시간 지표 3개 수집 후, 지수/금리 데이터를 합쳐 AI 요약을 추가하는 함수"""
     print("시장 심리 및 AI 요약 데이터 가져오는 중...")
     fng_text_list = []
     
@@ -92,7 +94,6 @@ def get_fear_and_greed():
         if res.status_code == 200:
             data = res.json()
             
-            # AI에 넘겨줄 기본값 초기화
             score = 50
             curr_pc = 1.0
             curr_hy = 2.0
@@ -113,7 +114,7 @@ def get_fear_and_greed():
             
             fng_text_list.append(f"- CNN 공포탐욕 지수: {score}점 ({rating_ko}) / 전일 대비 {sign}{change}점 ({sign}{pct_change:.2f}%)")
 
-            # 2. 풋/콜 비율 (Put/Call Ratio)
+            # 2. 풋/콜 비율
             if 'put_call_options' in data and 'data' in data['put_call_options']:
                 pc_data = data['put_call_options']['data']
                 curr_pc = float(pc_data[-1]['y'])
@@ -124,7 +125,7 @@ def get_fear_and_greed():
                 pc_status = "공포 (하락 베팅)" if curr_pc > 1.0 else "탐욕 (상승 베팅)" if curr_pc < 0.8 else "중립"
                 fng_text_list.append(f"- 풋/콜 비율 (P/C Ratio): {curr_pc:.2f} [{pc_status}] / 전일 대비 {pc_sign}{pc_change:.2f}")
 
-            # 3. 하이일드 스프레드 (Junk Bond Demand)
+            # 3. 하이일드 스프레드
             if 'junk_bond_demand' in data and 'data' in data['junk_bond_demand']:
                 jb_data = data['junk_bond_demand']['data']
                 curr_hy = float(jb_data[-1]['y'])
@@ -135,8 +136,8 @@ def get_fear_and_greed():
                 hy_status = "위험 회피" if curr_hy > 3.0 else "위험 선호" if curr_hy < 2.0 else "중립"
                 fng_text_list.append(f"- 하이일드 스프레드: {curr_hy:.2f}% [{hy_status}] / 전일 대비 {hy_sign}{hy_change:.2f}%p")
 
-            # 🌟 [AI 로직 연동] 외부 ai_generator.py 로 지표를 던져서 결과만 받아옴
-            ai_summary = get_macro_ai_summary(score, curr_pc, curr_hy)
+            # 🌟 [AI 로직 연동] 지수와 금리 텍스트를 함께 던져서 결과를 받아옴!
+            ai_summary = get_macro_ai_summary(indices_text, yield_text, score, curr_pc, curr_hy)
             fng_text_list.append(f"<br><strong style='color:#d35400;'>{ai_summary}</strong>")
 
         else:
