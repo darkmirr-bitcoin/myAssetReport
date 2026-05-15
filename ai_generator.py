@@ -1,7 +1,7 @@
 import os
 import json
 import time 
-from google import genai
+import google.generativeai as genai
 
 def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_trend, macd_hist, ema5, bb_upper, bb_lower, news, max_retries=3):
     """제미니 API를 호출하여 기술적 지표와 뉴스를 종합 분석합니다. (429 에러 시 자동 재시도)"""
