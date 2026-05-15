@@ -40,8 +40,7 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
                 contents=prompt
             )
             
-            raw_text = response.text.replace("```json", "").replace("
-```", "").strip()
+            raw_text = response.text.replace("```json", "").replace("```", "").strip()
             result = json.loads(raw_text)
             return result
             
