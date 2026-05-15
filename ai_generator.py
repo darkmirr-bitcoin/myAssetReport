@@ -4,12 +4,11 @@ import time
 from google import genai
 
 def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_trend, macd_hist, ema5, bb_upper, bb_lower, news, max_retries=3):
-    """제미니 API를 호출하여 기술적 지표와 뉴스를 종합 분석합니다. (429 에러 시 자동 재시도)"""
+    """제미니 API를 호출하여 기술적 지표와 뉴스를 종합 분석합니다. (최신 SDK 방식)"""
     
-    # 🚨 API 키 셋팅 (client 파라미터가 들어와도 내부에서 안전하게 덮어씀)
+    # 🚨 전달받은 client가 혹시 구버전일 수 있으니, 내부에서 최신 방식으로 무조건 새로 생성
     api_key = os.environ.get("GEMINI_API_KEY")
-    if api_key:
-        genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     prompt = f"""
     당신은 월스트리트의 최고 주식 분석가입니다.
@@ -27,7 +26,7 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
     [최신 뉴스]
     {news}
 
-    [출력 형식 (오직 JSON만 출력할 것, 마크다운 코드 블록 절대 금지)]
+    [출력 형식 (오직 JSON만 출력할 것)]
     {{
         "score": 85,
         "newsScore": 80,
@@ -38,11 +37,13 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
 
     for attempt in range(max_retries):
         try:
-            # 🚨 구버전(안정화) 호출 방식으로 변경!
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
             
-            raw_text = response.text.replace("```json", "").replace("```", "").strip()
+            raw_text = response.text.replace("```json", "").replace("
+```", "").strip()
             result = json.loads(raw_text)
             return result
             
@@ -53,47 +54,51 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
         except Exception as e:
             if "429" in str(e) and attempt < max_retries - 1:
                 wait_time = 10 * (attempt + 1)
-                print(f"⚠️ 429 에러 발생 ({ticker}) - {wait_time}초 후 재시도 (현재 {attempt+1}/{max_retries}회)")
                 time.sleep(wait_time)
                 continue
             else:
                 print(f"❌ API 호출 에러 ({ticker}): {e}")
                 return {"score": 0, "newsScore": 0, "opinion": "AI 연동 실패", "keywords": "-"}
 
-def get_macro_ai_summary(score, pc_ratio, hy_spread):
-    """매크로 지표 3가지를 받아 Gemini AI에게 한 줄 요약을 요청하는 함수"""
+def get_macro_ai_summary(indices_text, yield_text, score, pc_ratio, hy_spread):
+    """매크로 지표, 금리, 시장 심리를 모두 받아 Gemini AI에게 한 줄 요약을 요청하는 함수 (최신 SDK 방식)"""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return "💡 [AI 진단] 깃허브 시크릿에 GEMINI_API_KEY가 등록되지 않았습니다."
 
     try:
-        genai.configure(api_key=api_key)
-        # 빠르고 가벼운 flash 모델 사용
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = genai.Client(api_key=api_key)
         
         prompt = f"""
         너는 월스트리트의 수석 매크로 분석가야. 
-        아래 3가지 지표를 종합하여 현재 시장 참여자들의 '심리 상태'와 '리스크 선호도(방어적인지 공격적인지)'를 딱 한 줄(50자 이내)로 명확하고 전문적으로 요약해줘.
+        아래의 '주요 시장 지수', '국채 금리', 그리고 '시장 심리 지표'를 모두 종합하여 
+        현재 시장 참여자들의 '심리 상태'와 '리스크 선호도(방어적인지 공격적인지)'를 딱 한 줄(50~60자 이내)로 명확하고 전문적으로 요약해줘.
         
-        1. CNN 공포탐욕 지수: {score}점 (0=극도의 공포, 100=극도의 탐욕)
-        2. 풋/콜 비율(P/C Ratio): {pc_ratio} (1.0 이상=하락 베팅 우세, 0.8 이하=상승 베팅 우세)
-        3. 하이일드 스프레드: {hy_spread}% (높을수록 위험 회피/신용 경색, 낮을수록 위험 선호)
+        [1. 주요 시장 지수 흐름]
+        {indices_text}
         
-        출력 예시: "💡 하락 베팅이 증가하고 신용 경색 우려가 커지는 극도의 위험 회피 장세입니다."
+        [2. 국채 금리 동향]
+        {yield_text}
+        
+        [3. 시장 심리 지표]
+        - CNN 공포탐욕 지수: {score}점
+        - 풋/콜 비율(P/C Ratio): {pc_ratio}
+        - 하이일드 스프레드: {hy_spread}%
+        
+        출력 예시: "💡 금리 하락과 기술주 중심의 상승세 속에서 위험 선호 심리가 강하게 회복되는 장세입니다."
         """
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         print(f"❌ AI 매크로 요약 에러: {e}")
         return "💡 [AI 진단 실패] 시장 상태를 분석하는 데 문제가 발생했습니다."
 
 def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_text, us_date_str):
-    """종합 리포트 생성 - AI의 날짜 오판을 방지하기 위해 강제 지침 강화"""
-    
-    # 🚨 genai.Client() 삭제 및 안전한 설정으로 교체!
+    """종합 리포트 생성 (최신 SDK 방식)"""
     api_key = os.environ.get("GEMINI_API_KEY")
-    if api_key:
-        genai.configure(api_key=api_key)
 
     prompt = f"""
     [SYSTEM CRITICAL INSTRUCTION]
@@ -108,7 +113,7 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
     {indices_text} {yield_text} {fng_text}
 
     =========================================
-    [출력 양식] - 이 구조를 그대로 복사해서 내용을 채우세요.
+    [출력 양식]
 
     # 📈 오늘의 미국 증시 상세 분석 리포트 ({us_date_str})
     
@@ -116,31 +121,31 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
     (이곳에 3대 지수, VIX, 공포탐욕 지수, 국채 금리 데이터를 하나의 깔끔한 표(Table)로 정리해)
     
     **💡 거시 경제 & 시장 심리 분석 ({us_date_str} 기준):**
-    (표 바로 아래에 줄글로 3대 지수 흐름, 공포탐욕 지수 상태, 그리고 장단기 국채 금리 변동이 증시에 미치는 영향과 의미를 반드시 상세하게 설명해 줘!)
+    (표 바로 아래에 줄글로 상세하게 설명해 줘!)
 
     ## 2. 주요 종목 하이라이트 (AI 점수 80점 이상)
-    (이곳에 점수가 높은 순서대로 표를 작성해 줘. 표의 열은 반드시 [종목명 | 티커 | AI 점수 | 뉴스 점수 | 추세 상태 | 핵심 요약] 으로 명확히 6칸으로 분리해서 그려줘.)
+    (이곳에 점수가 높은 순서대로 표를 작성해 줘. 열: 종목명 | 티커 | AI 점수 | 뉴스 점수 | 추세 상태 | 핵심 요약)
 
     ## 3. 핵심 테마 및 뉴스 분석
-    (이곳에 데이터 1의 뉴스들을 활용해서 반도체, 빅테크, 암호화폐, 지정학적 리스크 등 주요 테마를 마크다운 리스트 형태로 깊이 있게 분석해)
+    (주요 테마를 마크다운 리스트 형태로 분석해)
 
     ---TELEGRAM_START---
     📊 **증시 및 거시 지표 요약 ({us_date_str})**
-    - (3대 지수 마감 요약, VIX, 국채 금리 등 핵심 수치 및 한 줄 평. 🚨표 사용 금지)
+    - (핵심 수치 및 한 줄 평. 표 사용 금지)
     
     🚀 **오늘의 강세 종목 (80점 이상)**
-    - (여기도 AI 점수 높은 순으로 정렬. 종목명(티커) / 점수 / 추세 상태 요약. 🚨표 사용 금지)
+    - (종목명(티커) / 점수 / 추세 상태 요약. 표 사용 금지)
 
     🌍 **핵심 거시 & 테마 요약**
-    - (반도체, 빅테크, 암호화폐, 지정학 리스크 중 가장 중요한 이슈 2~3가지만 아주 간결하게. 🚨표 사용 금지)
+    - (가장 중요한 이슈 2~3가지만 간결하게. 표 사용 금지)
     """
 
-    print(f"DEBUG: AI에게 전달되는 날짜 문자열 -> {us_date_str}")
-    
     try:
-        # 🚨 구버전(안정화) 호출 방식으로 변경!
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(prompt)
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
         full_text = response.text.strip()
         
         if "---TELEGRAM_START---" in full_text:
