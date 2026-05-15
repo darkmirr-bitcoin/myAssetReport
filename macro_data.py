@@ -2,12 +2,12 @@ import feedparser
 import requests
 import yfinance as yf
 
+# [추가됨] 분리된 AI 제너레이터 파일에서 매크로 요약 함수 불러오기
+from ai_generator import get_macro_ai_summary
+
 def get_stock_news(ticker, limit=3):
-    """
-    yfinance를 활용해 해당 종목의 최신 영문 뉴스를 가져옵니다.
-    """
+    """yfinance를 활용해 해당 종목의 최신 영문 뉴스를 가져옵니다."""
     try:
-        # yfinance 티커 객체 생성 (예: NASDAQ:AAPL 이면 AAPL 만 추출)
         short_ticker = ticker.split(":")[1] if ":" in ticker else ticker
         stock = yf.Ticker(short_ticker)
         news_list = stock.news
@@ -19,7 +19,6 @@ def get_stock_news(ticker, limit=3):
         for article in news_list[:limit]:
             title = article.get('title', '')
             publisher = article.get('publisher', '')
-            # 파이썬 제미니가 알아서 번역하고 분석하므로 영문 그대로 줘도 됨
             news_texts.append(f"[{publisher}] {title}")
             
         return "\n".join(news_texts)
@@ -45,27 +44,25 @@ def get_treasury_yields():
     print("국채 금리 데이터(10년물, 30년물) 가져오는 중...")
     yield_text = ""
     try:
-        # 1. 10년물 국채 금리 (^TNX)
         tnx = yf.Ticker("^TNX")
         hist_10 = tnx.history(period="2d")
         if len(hist_10) >= 2:
             prev_10 = hist_10['Close'].iloc[0]
             curr_10 = hist_10['Close'].iloc[1]
             change_10 = curr_10 - prev_10
-            pct_change_10 = (change_10 / prev_10) * 100 # 👈 변화율 계산 추가
+            pct_change_10 = (change_10 / prev_10) * 100
             sign_10 = "+" if change_10 > 0 else ""
             yield_text += f"- 미국 10년물 국채 금리: {curr_10:.3f}% (전일 대비 {sign_10}{change_10:.3f}%p, {sign_10}{pct_change_10:.2f}%)\n"
         elif len(hist_10) == 1:
             yield_text += f"- 미국 10년물 국채 금리: {hist_10['Close'].iloc[0]:.3f}% (전일 대비 변동폭 계산 불가)\n"
 
-        # 2. 30년물 국채 금리 (^TYX)
         tyx = yf.Ticker("^TYX")
         hist_30 = tyx.history(period="2d")
         if len(hist_30) >= 2:
             prev_30 = hist_30['Close'].iloc[0]
             curr_30 = hist_30['Close'].iloc[1]
             change_30 = curr_30 - prev_30
-            pct_change_30 = (change_30 / prev_30) * 100 # 👈 변화율 계산 추가
+            pct_change_30 = (change_30 / prev_30) * 100
             sign_30 = "+" if change_30 > 0 else ""
             yield_text += f"- 미국 30년물 국채 금리: {curr_30:.3f}% (전일 대비 {sign_30}{change_30:.3f}%p, {sign_30}{pct_change_30:.2f}%)"
         elif len(hist_30) == 1:
@@ -79,10 +76,12 @@ def get_treasury_yields():
         yield_text = f"국채 금리 데이터를 불러오지 못했습니다. ({e})"
     return yield_text
 
+# [핵심 업데이트] CNN 지수 3개(공포탐욕, 풋콜, 스프레드) + AI 연동!
 def get_fear_and_greed():
-    """CNN 실시간 공포탐욕 지수와 전일 대비 변화량 및 변화율(%)을 가져오는 함수"""
-    print("공포탐욕 지수 데이터 가져오는 중...")
-    fng_text = ""
+    """CNN 실시간 지표 3개 수집 후, ai_generator를 통해 AI 요약을 추가하는 함수"""
+    print("시장 심리 및 AI 요약 데이터 가져오는 중...")
+    fng_text_list = []
+    
     try:
         url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
         headers = {
@@ -92,40 +91,68 @@ def get_fear_and_greed():
         
         if res.status_code == 200:
             data = res.json()
+            
+            # AI에 넘겨줄 기본값 초기화
+            score = 50
+            curr_pc = 1.0
+            curr_hy = 2.0
+            
+            # 1. 메인 공포탐욕 지수
             score = round(data['fear_and_greed']['score']) 
             rating = data['fear_and_greed']['rating']      
             prev_close = round(data['fear_and_greed']['previous_close']) 
             
-            # 전일 대비 변화량 및 변화율 계산
             change = score - prev_close
             pct_change = (change / prev_close) * 100 if prev_close != 0 else 0 
             sign = "+" if change > 0 else ""
             
-            # API의 영문 상태 값을 직관적인 한글과 이모지로 매핑
             rating_ko = {
-                "extreme fear": "극도의 공포 😱",
-                "fear": "공포 😨",
-                "neutral": "중립 😐",
-                "greed": "탐욕 😎",
-                "extreme greed": "극도의 탐욕 🤑"
+                "extreme fear": "극도의 공포 😱", "fear": "공포 😨",
+                "neutral": "중립 😐", "greed": "탐욕 😎", "extreme greed": "극도의 탐욕 🤑"
             }.get(rating.lower(), rating) 
             
-            # 텍스트에 변화율(%) 포함하여 최종 조립
-            fng_text = f"- CNN 공포탐욕 지수: {score}점 ({rating_ko}) / 전일 대비 {sign}{change}점 ({sign}{pct_change:.2f}%)"
-            print(f"✅ 공포탐욕 확인 완료: {fng_text}")
-            
+            fng_text_list.append(f"- CNN 공포탐욕 지수: {score}점 ({rating_ko}) / 전일 대비 {sign}{change}점 ({sign}{pct_change:.2f}%)")
+
+            # 2. 풋/콜 비율 (Put/Call Ratio)
+            if 'put_call_options' in data and 'data' in data['put_call_options']:
+                pc_data = data['put_call_options']['data']
+                curr_pc = float(pc_data[-1]['y'])
+                prev_pc = float(pc_data[-2]['y']) if len(pc_data) > 1 else curr_pc
+                pc_change = curr_pc - prev_pc
+                pc_sign = "+" if pc_change > 0 else ""
+                
+                pc_status = "공포 (하락 베팅)" if curr_pc > 1.0 else "탐욕 (상승 베팅)" if curr_pc < 0.8 else "중립"
+                fng_text_list.append(f"- 풋/콜 비율 (P/C Ratio): {curr_pc:.2f} [{pc_status}] / 전일 대비 {pc_sign}{pc_change:.2f}")
+
+            # 3. 하이일드 스프레드 (Junk Bond Demand)
+            if 'junk_bond_demand' in data and 'data' in data['junk_bond_demand']:
+                jb_data = data['junk_bond_demand']['data']
+                curr_hy = float(jb_data[-1]['y'])
+                prev_hy = float(jb_data[-2]['y']) if len(jb_data) > 1 else curr_hy
+                hy_change = curr_hy - prev_hy
+                hy_sign = "+" if hy_change > 0 else ""
+                
+                hy_status = "위험 회피" if curr_hy > 3.0 else "위험 선호" if curr_hy < 2.0 else "중립"
+                fng_text_list.append(f"- 하이일드 스프레드: {curr_hy:.2f}% [{hy_status}] / 전일 대비 {hy_sign}{hy_change:.2f}%p")
+
+            # 🌟 [AI 로직 연동] 외부 ai_generator.py 로 지표를 던져서 결과만 받아옴
+            ai_summary = get_macro_ai_summary(score, curr_pc, curr_hy)
+            fng_text_list.append(f"<br><strong style='color:#d35400;'>{ai_summary}</strong>")
+
         else:
-            fng_text = "- CNN 공포탐욕 지수: 데이터를 불러올 수 없습니다."
+            fng_text_list.append("- 시장 심리 지표: 데이터를 불러올 수 없습니다.")
             print(f"❌ 공포탐욕 지수 API 응답 오류 (상태 코드: {res.status_code})")
             
     except Exception as e:
-        print(f"❌ 공포탐욕 지수 가져오기 실패: {e}")
-        fng_text = "- CNN 공포탐욕 지수: 오류 발생"
-        
-    return fng_text
+        print(f"❌ 시장 심리 데이터 가져오기 실패: {e}")
+        fng_text_list.append("- 시장 심리 지표: 오류 발생")
+
+    final_text = "\n".join(fng_text_list)
+    print(f"✅ 시장 심리 확인 완료:\n{final_text}")
+    return final_text
 
 def get_market_indices():
-    """S&P 500, 나스닥, 러셀 2000, VIX 지수를 가져오는 함수 (기존과 동일)"""
+    """S&P 500, 나스닥, 러셀 2000, VIX 지수를 가져오는 함수"""
     print("주요 시장 지수 데이터 가져오는 중...")
     indices = {
         "S&P 500": {"ticker": "^GSPC", "desc": "미국 대형주 500개 전반의 흐름"},
