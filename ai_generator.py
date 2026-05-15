@@ -6,11 +6,11 @@ import google.generativeai as genai
 def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_trend, macd_hist, ema5, bb_upper, bb_lower, news, max_retries=3):
     """제미니 API를 호출하여 기술적 지표와 뉴스를 종합 분석합니다. (429 에러 시 자동 재시도)"""
     
-    # 🚨 [수정됨] 매번 API 키를 확인하고 셋팅하도록 통일!
+    # 🚨 API 키 셋팅 (client 파라미터가 들어와도 내부에서 안전하게 덮어씀)
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         genai.configure(api_key=api_key)
-        
+
     prompt = f"""
     당신은 월스트리트의 최고 주식 분석가입니다.
     다음 {ticker} 주식의 기술적 지표와 최신 뉴스를 바탕으로 투자 매력도(0~100점)와 분석 의견을 JSON 형태로 정확히 반환하세요.
@@ -36,11 +36,10 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
     }}
     """
 
-    # 🚨 [수정됨] 구버전 호출 방식으로 통일 (gemini-2.0-flash 사용)
-    model = genai.GenerativeModel('gemini-2.0-flash')
-
     for attempt in range(max_retries):
         try:
+            # 🚨 구버전(안정화) 호출 방식으로 변경!
+            model = genai.GenerativeModel('gemini-2.0-flash')
             response = model.generate_content(prompt)
             
             raw_text = response.text.replace("```json", "").replace("
@@ -61,7 +60,6 @@ def get_gemini_scoring_analysis(client, ticker, price, rsi, volume_ratio, obv_tr
             else:
                 print(f"❌ API 호출 에러 ({ticker}): {e}")
                 return {"score": 0, "newsScore": 0, "opinion": "AI 연동 실패", "keywords": "-"}
-
 
 def get_macro_ai_summary(score, pc_ratio, hy_spread):
     """매크로 지표 3가지를 받아 Gemini AI에게 한 줄 요약을 요청하는 함수"""
@@ -90,16 +88,14 @@ def get_macro_ai_summary(score, pc_ratio, hy_spread):
         print(f"❌ AI 매크로 요약 에러: {e}")
         return "💡 [AI 진단 실패] 시장 상태를 분석하는 데 문제가 발생했습니다."
 
-
 def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_text, us_date_str):
     """종합 리포트 생성 - AI의 날짜 오판을 방지하기 위해 강제 지침 강화"""
     
-    # 🚨 [수정됨] genai.Client() 대신 기존 방식으로 통일!
+    # 🚨 genai.Client() 삭제 및 안전한 설정으로 교체!
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         genai.configure(api_key=api_key)
 
-    # 🚨 AI에게 날짜를 절대적으로 지키라고 명시함
     prompt = f"""
     [SYSTEM CRITICAL INSTRUCTION]
     당신의 유일한 기준 날짜는 오직 무조건 **{us_date_str}** 입니다. 
@@ -142,8 +138,8 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
 
     print(f"DEBUG: AI에게 전달되는 날짜 문자열 -> {us_date_str}")
     
-    # 🚨 [수정됨] 구버전 호출 방식으로 통일
     try:
+        # 🚨 구버전(안정화) 호출 방식으로 변경!
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(prompt)
         full_text = response.text.strip()
@@ -152,6 +148,7 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
             parts = full_text.split("---TELEGRAM_START---")
             return parts[0].strip(), parts[1].strip()
         return full_text, "요약본 생성 실패"
+        
     except Exception as e:
-        print(f"❌ 종합 리포트 생성 실패: {e}")
-        return f"리포트 생성 실패: {e}", "요약본 생성 실패"
+        print(f"❌ AI 리포트 생성 에러: {e}")
+        return "AI 리포트 생성에 실패했습니다.", "요약본 생성 실패"
