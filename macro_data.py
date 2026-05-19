@@ -1,5 +1,6 @@
 import feedparser
 import requests
+import datetime
 import yfinance as yf
 
 # [추가됨] 분리된 AI 제너레이터 파일에서 매크로 요약 함수 불러오기
@@ -117,13 +118,19 @@ def get_fear_and_greed(indices_text="", yield_text=""):
           # 2. 풋/콜 비율 (Put/Call Ratio)
             if 'put_call_options' in data and 'data' in data['put_call_options']:
                 pc_data = data['put_call_options']['data']
-                curr_pc = float(pc_data[-1]['y'])
+                curr_node = pc_data[-1]
+                curr_pc = float(curr_node['y'])
                 
-                # 데이터가 충분히 쌓여있다면, 완전히 다른 값이 나올 때까지 배열을 역추적해서 전일 마감 데이터를 모사
+                # 밀리초 타임스탬프를 날짜(Date) 객체로 변환
+                curr_date = datetime.datetime.fromtimestamp(curr_node['x'] / 1000).date()
+                
                 prev_pc = curr_pc
+                # 수치가 아니라 '날짜'가 달라지는 지점을 전일 마감으로 잡음
                 for i in range(2, min(30, len(pc_data))):
-                    if float(pc_data[-i]['y']) != curr_pc:
-                        prev_pc = float(pc_data[-i]['y'])
+                    prev_node = pc_data[-i]
+                    prev_date = datetime.datetime.fromtimestamp(prev_node['x'] / 1000).date()
+                    if prev_date < curr_date:
+                        prev_pc = float(prev_node['y'])
                         break
                         
                 pc_change = curr_pc - prev_pc
@@ -134,20 +141,23 @@ def get_fear_and_greed(indices_text="", yield_text=""):
             # 3. 하이일드 스프레드 (Junk Bond Demand)
             if 'junk_bond_demand' in data and 'data' in data['junk_bond_demand']:
                 jb_data = data['junk_bond_demand']['data']
-                curr_hy = float(jb_data[-1]['y'])
+                curr_node = jb_data[-1]
+                curr_hy = float(curr_node['y'])
                 
-                # 풋콜과 마찬가지로 장중 중복 데이터를 피해 의미 있는 이전 값(역추적)을 탐색
+                curr_date = datetime.datetime.fromtimestamp(curr_node['x'] / 1000).date()
+                
                 prev_hy = curr_hy
                 for i in range(2, min(30, len(jb_data))):
-                    if float(jb_data[-i]['y']) != curr_hy:
-                        prev_hy = float(jb_data[-i]['y'])
+                    prev_node = jb_data[-i]
+                    prev_date = datetime.datetime.fromtimestamp(prev_node['x'] / 1000).date()
+                    if prev_date < curr_date:
+                        prev_hy = float(prev_node['y'])
                         break
                         
                 hy_change = curr_hy - prev_hy
                 hy_sign = "+" if hy_change > 0 else ""
                 hy_status = "위험 회피" if curr_hy > 3.0 else "위험 선호" if curr_hy < 2.0 else "중립"
                 fng_text_list.append(f"- 하이일드 스프레드: {curr_hy:.2f}% [{hy_status}] / 전일 대비 {hy_sign}{hy_change:.2f}%p")
-
             # 🌟 [AI 로직 연동] 지수와 금리 텍스트를 함께 던져서 결과를 받아옴!
             ai_summary = get_macro_ai_summary(indices_text, yield_text, score, curr_pc, curr_hy)
             fng_text_list.append(f"<br><strong style='color:#d35400;'>{ai_summary}</strong>")
