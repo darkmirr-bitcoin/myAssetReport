@@ -114,25 +114,37 @@ def get_fear_and_greed(indices_text="", yield_text=""):
             
             fng_text_list.append(f"- CNN 공포탐욕 지수: {score}점 ({rating_ko}) / 전일 대비 {sign}{change}점 ({sign}{pct_change:.2f}%)")
 
-            # 2. 풋/콜 비율
+          # 2. 풋/콜 비율 (Put/Call Ratio)
             if 'put_call_options' in data and 'data' in data['put_call_options']:
                 pc_data = data['put_call_options']['data']
                 curr_pc = float(pc_data[-1]['y'])
-                prev_pc = float(pc_data[-2]['y']) if len(pc_data) > 1 else curr_pc
+                
+                # 데이터가 충분히 쌓여있다면, 완전히 다른 값이 나올 때까지 배열을 역추적해서 전일 마감 데이터를 모사
+                prev_pc = curr_pc
+                for i in range(2, min(30, len(pc_data))):
+                    if float(pc_data[-i]['y']) != curr_pc:
+                        prev_pc = float(pc_data[-i]['y'])
+                        break
+                        
                 pc_change = curr_pc - prev_pc
                 pc_sign = "+" if pc_change > 0 else ""
-                
                 pc_status = "공포 (하락 베팅)" if curr_pc > 1.0 else "탐욕 (상승 베팅)" if curr_pc < 0.8 else "중립"
                 fng_text_list.append(f"- 풋/콜 비율 (P/C Ratio): {curr_pc:.2f} [{pc_status}] / 전일 대비 {pc_sign}{pc_change:.2f}")
 
-            # 3. 하이일드 스프레드
+            # 3. 하이일드 스프레드 (Junk Bond Demand)
             if 'junk_bond_demand' in data and 'data' in data['junk_bond_demand']:
                 jb_data = data['junk_bond_demand']['data']
                 curr_hy = float(jb_data[-1]['y'])
-                prev_hy = float(jb_data[-2]['y']) if len(jb_data) > 1 else curr_hy
+                
+                # 풋콜과 마찬가지로 장중 중복 데이터를 피해 의미 있는 이전 값(역추적)을 탐색
+                prev_hy = curr_hy
+                for i in range(2, min(30, len(jb_data))):
+                    if float(jb_data[-i]['y']) != curr_hy:
+                        prev_hy = float(jb_data[-i]['y'])
+                        break
+                        
                 hy_change = curr_hy - prev_hy
                 hy_sign = "+" if hy_change > 0 else ""
-                
                 hy_status = "위험 회피" if curr_hy > 3.0 else "위험 선호" if curr_hy < 2.0 else "중립"
                 fng_text_list.append(f"- 하이일드 스프레드: {curr_hy:.2f}% [{hy_status}] / 전일 대비 {hy_sign}{hy_change:.2f}%p")
 
