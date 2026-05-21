@@ -3,7 +3,7 @@ name: Daily Asset Report Automation
 on:
   schedule:
     # 매일 한국 시간 아침 8시 3분에 자동 실행 (UTC 기준 23시 3분)
-    - cron: '3 23 * * *' 
+    - cron: '1 23 * * *' 
   workflow_dispatch: # 깃허브에서 수동으로 버튼 눌러서 실행 가능하게 함
 
 # [핵심] 깃허브 액션이 봇(Bot)으로서 파일(index.html, reports/*.md)을 덮어쓸 수 있도록 쓰기 권한 부여
