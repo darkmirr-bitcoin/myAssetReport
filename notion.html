@@ -78,4 +78,643 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .main{flex:1;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg);}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:20;flex-shrink:0;}
 .tb-info{flex:1;}
-.tb-month{font-size:18px;font-weight
+.tb-month{font-size:18px;font-weight:900;}
+.tb-range{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1px;}
+.tbtn{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Noto Sans KR',sans-serif;transition:all .15s;white-space:nowrap;}
+.tbtn:hover{background:var(--bg);}
+.tbtn.today-btn{background:var(--yellow-soft);color:var(--yellow);border-color:var(--today-bd);}
+.tbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tbtn.primary:hover{opacity:0.9;}
+.sync-banner{margin:14px 20px 0;background:linear-gradient(135deg,#1e3a6e,#2f6fed);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;color:#fff;font-size:12px;}
+.sync-dot{width:7px;height:7px;background:#34d399;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── 3. WEEK GRID (반응형/가로스크롤 대응) ── */
+.week-wrap{padding:16px 20px;flex:1; overflow-x: auto;} /* 가로 스크롤 허용 */
+.day-header-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px; min-width: 900px;} /* 최소 너비 강제 */
+.day-header{background:var(--surface);border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none;padding:10px 10px 8px;text-align:center;}
+.day-header.is-today{border-color:var(--today-bd);background:var(--today-bg);}
+.day-header.is-holiday{border-color:var(--hol-bd);background:var(--hol-bg);}
+.day-header.is-sun .day-name,.day-header.is-sun .day-num{color:var(--red);}
+.day-header.is-sat .day-name,.day-header.is-sat .day-num{color:var(--accent);}
+.day-name{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.07em;}
+.day-num-wrap{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:3px auto;}
+.day-num{font-size:19px;font-weight:900;line-height:1;}
+.day-header.is-today .day-num-wrap{background:var(--accent);}
+.day-header.is-today .day-num{color:#fff;}
+.hol-chip{font-size:9px;font-weight:700;color:var(--red);background:var(--red-soft);border-radius:10px;padding:1px 6px;display:inline-block;margin-top:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* ── DAY COLUMN (반응형/가로스크롤 대응) ── */
+.task-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:start; min-width: 900px;} /* 최소 너비 강제 */
+.day-col{background:var(--surface);border:1px solid var(--border);border-radius:0 0 10px 10px;border-top:none;display:flex;flex-direction:column;min-height:320px;}
+.day-col.is-today{border-color:var(--today-bd);background:var(--today-bg);}
+.day-col.is-holiday{border-color:var(--hol-bd);background:var(--hol-bg);}
+
+/* ── TASK CARD ── */
+.tasks-area{padding:8px 8px 4px;display:flex;flex-direction:column;gap:5px;}
+.task-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color .15s;}
+.task-card:hover{border-color:var(--accent);}
+
+/* 상태별 카드 좌측 바 */
+.task-card.st-todo   {border-left:3px solid var(--st-todo-bd);}
+.task-card.st-doing  {border-left:3px solid var(--st-doing-bd);}
+.task-card.st-done   {border-left:3px solid var(--st-done-bd);opacity:.75;}
+
+.task-card-top{display:flex;align-items:flex-start;gap:6px;padding:7px 8px 4px;}
+.task-prio{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.p-high{background:var(--red);}
+.p-mid{background:var(--yellow);}
+.p-low{background:var(--green);}
+.task-title{font-size:12px;line-height:1.45;flex:1;word-break:break-all;}
+.task-card.st-done .task-title{text-decoration:line-through;color:var(--muted);}
+.task-del{font-size:11px;color:var(--border);cursor:pointer;flex-shrink:0;padding:1px 3px;display:none;}
+.task-card:hover .task-del{display:block;}
+.task-del:hover{color:var(--red);}
+
+/* ── STATUS BUTTONS ── */
+.task-status-row{padding:4px 8px 8px 8px;display:flex;gap:4px;}
+.st-btn{
+  flex:1;
+  padding:5px 2px;
+  border-radius:7px;
+  font-size:11px;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;
+  cursor:pointer;
+  border:1.5px solid var(--border);
+  background:var(--bg);
+  color:var(--muted);
+  text-align:center;
+  transition:all .15s;
+  line-height:1.3;
+  user-select:none;
+}
+.st-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+.st-btn.active-todo  {background:var(--st-todo-bg); color:var(--st-todo-color); border-color:var(--st-todo-bd);   box-shadow:0 0 0 1px var(--st-todo-bd);}
+.st-btn.active-doing {background:var(--st-doing-bg);color:var(--st-doing-color);border-color:var(--st-doing-bd);  box-shadow:0 0 0 1px var(--st-doing-bd);}
+.st-btn.active-done  {background:var(--st-done-bg); color:var(--st-done-color); border-color:var(--st-done-bd);   box-shadow:0 0 0 1px var(--st-done-bd);}
+
+/* ── TASK MEMO ── */
+.task-memo-area{padding:0 8px 7px 20px;}
+.task-memo-text{font-size:11px;color:var(--muted);line-height:1.55;white-space:pre-wrap;word-break:break-word;background:var(--surface2);border-radius:5px;padding:5px 7px;border-left:2px solid var(--border);cursor:pointer;}
+.task-memo-text:hover{border-left-color:var(--accent);}
+.task-memo-empty{font-size:10px;color:var(--border);cursor:pointer;padding:2px 4px;}
+.task-memo-empty:hover{color:var(--accent);}
+.task-memo-edit{width:100%;border:none;background:var(--surface2);font-size:11px;color:var(--text);line-height:1.55;resize:none;outline:none;font-family:'Noto Sans KR',sans-serif;padding:5px 7px;border-radius:5px;border-left:2px solid var(--accent);min-height:48px;}
+
+/* ── DAY MEMO ── */
+.day-memo-area{border-top:1px dashed var(--border);padding:6px 8px;flex:1;display:flex;flex-direction:column;gap:4px;}
+.day-memo-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:flex;align-items:center;justify-content:space-between;}
+.day-memo-label span.edit-btn{cursor:pointer;color:var(--accent);font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;}
+.day-memo-textarea{width:100%;flex:1;min-height:72px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;font-family:'Noto Sans KR',sans-serif;line-height:1.6;resize:none;outline:none;background:var(--bg);color:var(--text);transition:border .15s;}
+.day-memo-textarea:focus{border-color:var(--accent);background:var(--surface);}
+.day-memo-textarea::placeholder{color:var(--border);}
+.day-memo-display{font-size:11px;line-height:1.6;white-space:pre-wrap;word-break:break-word;min-height:36px;cursor:pointer;padding:4px 5px;border-radius:4px;color:var(--text);}
+.day-memo-display:hover{background:var(--bg);}
+.day-memo-display.empty{color:var(--border);}
+
+/* ── ADD TASK FORM ── */
+.add-task-area{padding:4px 8px 8px;}
+.add-btn{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11px;cursor:pointer;padding:5px 6px;border-radius:6px;border:1px dashed var(--border);transition:all .15s;width:100%;}
+.add-btn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+.add-form{display:none;flex-direction:column;gap:6px;}
+.add-form.open{display:flex;}
+.add-title-input{width:100%;border:1px solid var(--accent);border-radius:6px;padding:6px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;outline:none;background:var(--surface);color:var(--text);}
+.add-memo-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;font-family:'Noto Sans KR',sans-serif;outline:none;background:var(--bg);resize:none;min-height:48px;line-height:1.6;color:var(--text);}
+.add-memo-input:focus{border-color:var(--accent);background:var(--surface);}
+.add-memo-input::placeholder{color:var(--muted);}
+.add-form-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.prio-btns{display:flex;gap:3px;}
+.pb{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:border .1s;}
+.pb:hover,.pb.on{border-color:var(--text);}
+.ph{background:var(--red);}
+.pm{background:var(--yellow);}
+.pl{background:var(--green);}
+.mini-btn{padding:4px 9px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;}
+.mini-btn.ok{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* ── PASTE MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:flex-end;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.paste-modal{background:var(--surface);border-radius:16px 16px 12px 12px;width:100%;max-width:680px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5);}
+.pm-header{padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.pm-header h3{font-size:15px;font-weight:700;}
+.pm-close{font-size:18px;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:4px;}
+.pm-close:hover{background:var(--bg);color:var(--text);}
+.pm-body{padding:16px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;}
+.pm-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+.day-pick-btns{display:flex;gap:5px;flex-wrap:wrap;}
+.day-pick-btn{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.day-pick-btn:hover{border-color:var(--accent);color:var(--accent);}
+.day-pick-btn.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
+.paste-mode-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);}
+.pmt{padding:6px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.pmt.active{color:var(--accent);border-bottom-color:var(--accent);}
+.paste-textarea{width:100%;min-height:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;line-height:1.7;resize:vertical;outline:none;background:var(--bg);color:var(--text);transition:border .15s;}
+.paste-textarea:focus{border-color:var(--accent);background:var(--surface);}
+.paste-textarea::placeholder{color:var(--muted);}
+.paste-hint{font-size:11px;color:var(--muted);}
+.paste-preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:140px;overflow-y:auto;display:none;flex-direction:column;gap:5px;}
+.paste-preview.show{display:flex;}
+.preview-item{display:flex;align-items:flex-start;gap:7px;font-size:12px;}
+.preview-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:4px;}
+.pm-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;justify-content:flex-end;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="sb-top">
+    <h1>📅 주간 플래너</h1>
+    <p>나의 다이어리</p>
+  </div>
+  <div class="mini-cal">
+    <div class="mc-nav-row">
+      <span class="mc-title" id="mcTitle"></span>
+      <div style="display:flex;gap:2px">
+        <button class="mcnav" onclick="mcPrev()">‹</button>
+        <button class="mcnav" onclick="mcNext()">›</button>
+      </div>
+    </div>
+    <div class="mc-grid" id="mcGrid"></div>
+  </div>
+  <div class="sb-section" style="margin-top:12px">
+    <div class="sb-label">🇰🇷 다가오는 공휴일</div>
+    <div id="upcomingList"></div>
+  </div>
+
+  <div class="sb-section" style="margin-top:16px">
+    <div class="sb-label">상태 변경 방법</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:8px;">할 일 카드의 버튼을<br>탭해서 상태를 바꾸세요</div>
+    <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="background:var(--st-todo-bg);color:var(--st-todo-color);border:1.5px solid var(--st-todo-bd);border-radius:7px;padding:3px 10px;font-weight:700;font-size:11px;">○ 예정</span>
+        <span style="color:var(--muted);">시작 전</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="background:var(--st-doing-bg);color:var(--st-doing-color);border:1.5px solid var(--st-doing-bd);border-radius:7px;padding:3px 10px;font-weight:700;font-size:11px;">◐ 진행중</span>
+        <span style="color:var(--muted);">작업 중</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="background:var(--st-done-bg);color:var(--st-done-color);border:1.5px solid var(--st-done-bd);border-radius:7px;padding:3px 10px;font-weight:700;font-size:11px;">● 완료</span>
+        <span style="color:var(--muted);">취소선 적용</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <button class="tbtn" onclick="prevWeek()">‹ 이전</button>
+    <button class="tbtn today-btn" onclick="goToday()">오늘</button>
+    <button class="tbtn" onclick="nextWeek()">다음 ›</button>
+    <div class="tb-info">
+      <div class="tb-month" id="topMonth"></div>
+      <div class="tb-range" id="topRange"></div>
+    </div>
+    <button class="tbtn primary" onclick="openPasteModal()">📋 붙여넣기</button>
+  </div>
+
+  <div class="sync-banner">
+    <div class="sync-dot"></div>
+    <div><strong>🇰🇷 대한민국 공휴일 연동됨</strong>&nbsp;<span style="opacity:.75;font-size:11px">2025~2026 · 대체공휴일 자동 표시</span></div>
+  </div>
+
+  <div class="week-wrap">
+    <div class="day-header-row" id="dayHeaderRow"></div>
+    <div class="task-row" id="taskRow"></div>
+  </div>
+</main>
+</div>
+
+<div class="modal-overlay" id="pasteOverlay" onclick="closePasteModal(event)">
+  <div class="paste-modal">
+    <div class="pm-header">
+      <h3>📋 패드 메모 붙여넣기</h3>
+      <span class="pm-close" onclick="closePasteModal()">✕</span>
+    </div>
+    <div class="pm-body">
+      <div>
+        <div class="pm-label">📅 추가할 날짜</div>
+        <div class="day-pick-btns" id="dayPickBtns"></div>
+      </div>
+      <div>
+        <div class="paste-mode-tabs">
+          <div class="pmt active" onclick="switchPasteMode('task',this)">✅ 할 일로 추가</div>
+          <div class="pmt" onclick="switchPasteMode('memo',this)">📝 날짜 메모로 추가</div>
+        </div>
+      </div>
+      <div>
+        <textarea class="paste-textarea" id="pasteInput" oninput="onPasteInput()"
+          placeholder="패드에서 복사한 내용을 붙여넣기 (Ctrl+V / ⌘V)&#10;&#10;할 일 모드: 줄마다 별도 할 일로 추가됩니다&#10;예)&#10;- 기획서 초안 작성&#10;- 팀 미팅 준비&#10;- 디자인 피드백"></textarea>
+        <div class="paste-hint" id="pasteHint" style="margin-top:6px"></div>
+      </div>
+      <div class="paste-preview" id="pastePreview"></div>
+    </div>
+    <div class="pm-footer">
+      <button class="tbtn" onclick="closePasteModal()">취소</button>
+      <button class="tbtn primary" onclick="confirmPaste()">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── HOLIDAYS ── */
+const HOLIDAYS=[
+  {date:'2025-01-01',name:'신정',type:'국경일'},
+  {date:'2025-01-28',name:'설날 연휴',type:'명절'},{date:'2025-01-29',name:'설날',type:'명절'},{date:'2025-01-30',name:'설날 연휴',type:'명절'},
+  {date:'2025-03-01',name:'삼일절',type:'국경일'},
+  {date:'2025-05-05',name:'어린이날',type:'기념일'},{date:'2025-05-05',name:'부처님오신날',type:'기념일'},{date:'2025-05-06',name:'어린이날 대체',type:'대체'},
+  {date:'2025-06-06',name:'현충일',type:'기념일'},{date:'2025-08-15',name:'광복절',type:'국경일'},
+  {date:'2025-10-03',name:'개천절',type:'국경일'},{date:'2025-10-05',name:'추석 연휴',type:'명절'},{date:'2025-10-06',name:'추석',type:'명절'},{date:'2025-10-07',name:'추석 연휴',type:'명절'},{date:'2025-10-09',name:'한글날',type:'국경일'},
+  {date:'2025-12-25',name:'크리스마스',type:'기념일'},
+  {date:'2026-01-01',name:'신정',type:'국경일'},
+  {date:'2026-02-16',name:'설날 연휴',type:'명절'},{date:'2026-02-17',name:'설날',type:'명절'},{date:'2026-02-18',name:'설날 연휴',type:'명절'},
+  {date:'2026-03-01',name:'삼일절',type:'국경일'},{date:'2026-03-02',name:'삼일절 대체',type:'대체'},
+  {date:'2026-05-05',name:'어린이날',type:'기념일'},{date:'2026-05-24',name:'부처님오신날',type:'기념일'},{date:'2026-05-25',name:'부처님오신날 대체',type:'대체'},
+  {date:'2026-06-03',name:'지방선거일',type:'임시'},{date:'2026-06-06',name:'현충일',type:'기념일'},
+  {date:'2026-07-17',name:'제헌절',type:'국경일'},
+  {date:'2026-08-15',name:'광복절',type:'국경일'},{date:'2026-08-17',name:'광복절 대체',type:'대체'},
+  {date:'2026-09-24',name:'추석 연휴',type:'명절'},{date:'2026-09-25',name:'추석',type:'명절'},{date:'2026-09-26',name:'추석 연휴',type:'명절'},
+  {date:'2026-10-03',name:'개천절',type:'국경일'},{date:'2026-10-05',name:'개천절 대체',type:'대체'},{date:'2026-10-09',name:'한글날',type:'국경일'},
+  {date:'2026-12-25',name:'크리스마스',type:'기념일'},
+];
+const HMAP={};
+HOLIDAYS.forEach(h=>{HMAP[h.date]=HMAP[h.date]||[];HMAP[h.date].push(h);});
+
+/* ── STATE ── */
+const today=new Date();
+let weekStart=getWeekStart(new Date());
+let mcBase=new Date(today.getFullYear(),today.getMonth(),1);
+let tasks={};      // {ds:[{title,memo,status,prio}]}
+let dayMemos={};   // {ds:string}
+let pasteMode='task';
+let pasteTargetDate=null;
+let selPrio={};
+let editingMemo={}; // key = ds+'_'+idx
+let editingDayMemo={};
+
+const STATUS_LIST=[
+  {val:'todo',  label:'예정',   cls:'s-todo',  cardCls:'st-todo'},
+  {val:'doing', label:'진행중', cls:'s-doing', cardCls:'st-doing'},
+  {val:'done',  label:'완료',   cls:'s-done',  cardCls:'st-done'},
+];
+function statusInfo(val){return STATUS_LIST.find(s=>s.val===val)||STATUS_LIST[0];}
+
+/* ── UTILS ── */
+const DAY_KO=['일','월','화','수','목','금','토'];
+const MONTH_KO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+function fmt(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function pad(n){return String(n).padStart(2,'0');}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function getWeekStart(d){const r=new Date(d);r.setDate(r.getDate()-r.getDay());return r;}
+function isToday(d){return fmt(d)===fmt(today);}
+function getHols(ds){return HMAP[ds]||[];}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ── LOCAL STORAGE (데이터 영구 보존) ── */
+function loadData() {
+  const savedTasks = localStorage.getItem('planner_tasks');
+  const savedMemos = localStorage.getItem('planner_memos');
+  if (savedTasks) tasks = JSON.parse(savedTasks);
+  if (savedMemos) dayMemos = JSON.parse(savedMemos);
+}
+function saveData() {
+  localStorage.setItem('planner_tasks', JSON.stringify(tasks));
+  localStorage.setItem('planner_memos', JSON.stringify(dayMemos));
+}
+
+/* ── RENDER ── */
+function render(){
+  const days=Array.from({length:7},(_,i)=>addDays(weekStart,i));
+  const months=[...new Set(days.map(d=>MONTH_KO[d.getMonth()]))].join(' ~ ');
+  document.getElementById('topMonth').textContent=days[0].getFullYear()+'년 '+months;
+  document.getElementById('topRange').textContent=fmt(days[0])+' ~ '+fmt(days[6]);
+
+  /* Day headers */
+  const hr=document.getElementById('dayHeaderRow');
+  hr.innerHTML='';
+  days.forEach(d=>{
+    const ds=fmt(d),hols=getHols(ds),tod=isToday(d),sun=d.getDay()===0,sat=d.getDay()===6;
+    let cls='day-header';
+    if(tod)cls+=' is-today';else if(hols.length)cls+=' is-holiday';
+    if(sun)cls+=' is-sun';if(sat)cls+=' is-sat';
+    hr.innerHTML+=`<div class="${cls}">
+      <div class="day-name">${DAY_KO[d.getDay()]}</div>
+      <div class="day-num-wrap"><div class="day-num">${d.getDate()}</div></div>
+      ${hols.map(h=>`<div class="hol-chip">🇰🇷${h.name}</div>`).join('')}
+    </div>`;
+  });
+
+  /* Columns */
+  const tr=document.getElementById('taskRow');
+  tr.innerHTML='';
+  days.forEach(d=>{
+    const ds=fmt(d),hols=getHols(ds),tod=isToday(d);
+    let cls='day-col';
+    if(tod)cls+=' is-today';else if(hols.length)cls+=' is-holiday';
+    const col=document.createElement('div');
+    col.className=cls;
+
+    /* tasks */
+    const ta=document.createElement('div');
+    ta.className='tasks-area';
+    (tasks[ds]||[]).forEach((t,i)=>ta.appendChild(makeTaskCard(ds,i,t)));
+    col.appendChild(ta);
+
+    /* add form */
+    const aa=document.createElement('div');
+    aa.className='add-task-area';
+    aa.innerHTML=`
+      <div class="add-btn" onclick="openAddForm('${ds}')">+ 할 일 추가</div>
+      <div class="add-form" id="af-${ds}">
+        <input class="add-title-input" id="ati-${ds}" placeholder="할 일 제목" onkeydown="addFormKey(event,'${ds}')"/>
+        <textarea class="add-memo-input" id="ami-${ds}" placeholder="메모 (선택) — 패드 내용 붙여넣기 가능" rows="2"></textarea>
+        <div class="add-form-row">
+          <div class="prio-btns">
+            <div class="pb ph on" id="ph-${ds}" onclick="setPrio('${ds}','high')" title="높음"></div>
+            <div class="pb pm" id="pm-${ds}" onclick="setPrio('${ds}','mid')" title="보통"></div>
+            <div class="pb pl" id="pl-${ds}" onclick="setPrio('${ds}','low')" title="낮음"></div>
+          </div>
+          <button class="mini-btn ok" onclick="addTask('${ds}')">추가</button>
+          <button class="mini-btn" onclick="closeAddForm('${ds}')">취소</button>
+        </div>
+      </div>`;
+    col.appendChild(aa);
+
+    /* day memo */
+    const dm=document.createElement('div');
+    dm.className='day-memo-area';
+    const memo=dayMemos[ds]||'';
+    const editing=editingDayMemo[ds];
+    dm.innerHTML=`<div class="day-memo-label">
+      <span>📝 메모</span>
+      <span class="edit-btn" onclick="toggleDayMemoEdit('${ds}')">${editing?'저장':'편집'}</span>
+    </div>`;
+    if(editing){
+      const t2=document.createElement('textarea');
+      t2.className='day-memo-textarea';
+      t2.id='dmt-'+ds;
+      t2.placeholder='날짜별 메모 — 패드 내용 붙여넣기 OK';
+      t2.value=memo;
+      dm.appendChild(t2);
+    } else {
+      const disp=document.createElement('div');
+      disp.className='day-memo-display'+(memo?'':' empty');
+      disp.textContent=memo||'메모를 탭해서 추가';
+      disp.onclick=()=>{editingDayMemo[ds]=true;render();setTimeout(()=>{const el=document.getElementById('dmt-'+ds);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}},40);};
+      dm.appendChild(disp);
+    }
+    col.appendChild(dm);
+    tr.appendChild(col);
+    if(!selPrio[ds])selPrio[ds]='high';
+  });
+
+  renderMiniCal();
+  renderUpcoming();
+}
+
+/* ── TASK CARD ── */
+function makeTaskCard(ds,idx,t){
+  const st=statusInfo(t.status||'todo');
+  const card=document.createElement('div');
+  card.className=`task-card ${st.cardCls}`;
+
+  /* top row: prio dot + title + delete */
+  const top=document.createElement('div');
+  top.className='task-card-top';
+  const prioClass=t.prio==='high'?'p-high':t.prio==='low'?'p-low':'p-mid';
+  top.innerHTML=`
+    <div class="task-prio ${prioClass}"></div>
+    <div class="task-title">${esc(t.title)}</div>
+    <span class="task-del" onclick="deleteTask('${ds}',${idx})">✕</span>`;
+  card.appendChild(top);
+
+  /* status button row */
+  const sr=document.createElement('div');
+  sr.className='task-status-row';
+  const cur=t.status||'todo';
+  const btnMeta=[
+    {val:'todo',  icon:'○', label:'예정'},
+    {val:'doing', icon:'◐', label:'진행중'},
+    {val:'done',  icon:'●', label:'완료'},
+  ];
+  btnMeta.forEach(b=>{
+    const btn=document.createElement('div');
+    btn.className='st-btn'+(cur===b.val?' active-'+b.val:'');
+    btn.innerHTML=`<div>${b.icon}</div><div>${b.label}</div>`;
+    btn.onclick=()=>changeStatus(ds,idx,b.val);
+    sr.appendChild(btn);
+  });
+  card.appendChild(sr);
+
+  /* memo */
+  const ma=document.createElement('div');
+  ma.className='task-memo-area';
+  const key=ds+'_'+idx;
+  if(editingMemo[key]){
+    const ta=document.createElement('textarea');
+    ta.className='task-memo-edit';
+    ta.id='tme-'+key;
+    ta.placeholder='메모 — 패드 내용 붙여넣기 가능';
+    ta.value=t.memo||'';
+    ta.onblur=()=>saveTaskMemo(ds,idx,ta.value);
+    ta.onkeydown=e=>{if(e.key==='Escape')saveTaskMemo(ds,idx,ta.value);};
+    ma.appendChild(ta);
+    setTimeout(()=>{if(ta&&document.contains(ta))ta.focus();},30);
+  } else if(t.memo){
+    const disp=document.createElement('div');
+    disp.className='task-memo-text';
+    disp.textContent=t.memo;
+    disp.onclick=()=>{editingMemo[key]=true;render();};
+    ma.appendChild(disp);
+  } else {
+    const emp=document.createElement('div');
+    emp.className='task-memo-empty';
+    emp.textContent='+ 메모 추가';
+    emp.onclick=()=>{editingMemo[key]=true;render();};
+    ma.appendChild(emp);
+  }
+  card.appendChild(ma);
+  return card;
+}
+
+function changeStatus(ds,idx,val){
+  if(tasks[ds]&&tasks[ds][idx]){
+    tasks[ds][idx].status=val;
+    saveData(); // 데이터 저장
+    render();
+  }
+}
+function saveTaskMemo(ds,idx,val){
+  if(tasks[ds]&&tasks[ds][idx]){
+    tasks[ds][idx].memo=val.trim();
+    saveData(); // 데이터 저장
+  }
+  delete editingMemo[ds+'_'+idx];
+  render();
+}
+function deleteTask(ds,idx){
+  tasks[ds].splice(idx,1);
+  saveData(); // 데이터 저장
+  render();
+}
+
+/* ── ADD TASK ── */
+function openAddForm(ds){
+  document.getElementById('af-'+ds).classList.add('open');
+  setTimeout(()=>document.getElementById('ati-'+ds).focus(),30);
+}
+function closeAddForm(ds){
+  document.getElementById('af-'+ds).classList.remove('open');
+  document.getElementById('ati-'+ds).value='';
+  document.getElementById('ami-'+ds).value='';
+}
+function addFormKey(e,ds){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();addTask(ds);}if(e.key==='Escape')closeAddForm(ds);}
+function addTask(ds){
+  const titleEl=document.getElementById('ati-'+ds);
+  const memoEl=document.getElementById('ami-'+ds);
+  const title=(titleEl.value||'').trim();
+  const memo=(memoEl.value||'').trim();
+  if(!title)return;
+  if(!tasks[ds])tasks[ds]=[];
+  tasks[ds].push({title,memo,status:'todo',prio:selPrio[ds]||'high'});
+  saveData(); // 데이터 저장
+  closeAddForm(ds);
+  render();
+}
+function setPrio(ds,p){
+  selPrio[ds]=p;
+  ['high','mid','low'].forEach(x=>{
+    const el=document.getElementById('p'+x[0]+'-'+ds);
+    if(el)el.classList.toggle('on',x===p);
+  });
+}
+function toggleDayMemoEdit(ds){
+  if(editingDayMemo[ds]){
+    const el=document.getElementById('dmt-'+ds);
+    if(el) {
+      dayMemos[ds]=el.value;
+      saveData(); // 데이터 저장
+    }
+    delete editingDayMemo[ds];
+  } else {
+    editingDayMemo[ds]=true;
+  }
+  render();
+}
+
+/* ── MINI CAL ── */
+function renderMiniCal(){
+  const y=mcBase.getFullYear(),m=mcBase.getMonth();
+  document.getElementById('mcTitle').textContent=y+'년 '+(m+1)+'월';
+  const firstDay=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
+  const wS=fmt(weekStart),wE=fmt(addDays(weekStart,6));
+  let html=DAY_KO.map(d=>`<div class="mc-lbl">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++)html+=`<div class="mc-day mc-other"></div>`;
+  for(let day=1;day<=dim;day++){
+    const d=new Date(y,m,day),ds=fmt(d);
+    const hols=getHols(ds),tod=isToday(d),inWk=ds>=wS&&ds<=wE,sun=d.getDay()===0;
+    let cls='mc-day';
+    if(tod)cls+=' mc-today';else if(inWk)cls+=' mc-in-week';
+    if(hols.length||sun)cls+=' mc-holiday';
+    html+=`<div class="${cls}" onclick="jumpTo('${ds}')">${day}</div>`;
+  }
+  document.getElementById('mcGrid').innerHTML=html;
+}
+function mcPrev(){mcBase.setMonth(mcBase.getMonth()-1);renderMiniCal();}
+function mcNext(){mcBase.setMonth(mcBase.getMonth()+1);renderMiniCal();}
+function jumpTo(ds){weekStart=getWeekStart(new Date(ds));render();}
+
+/* ── UPCOMING ── */
+function renderUpcoming(){
+  const ts=fmt(today);
+  const list=HOLIDAYS.filter(h=>h.date>=ts).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+  document.getElementById('upcomingList').innerHTML=list.map(h=>{
+    const d=new Date(h.date+'T00:00:00');
+    const diff=Math.round((d-today)/86400000);
+    const when=diff===0?'오늘':diff===1?'내일':`D-${diff}`;
+    return`<div class="h-item">
+      <div class="h-name">🔴 ${h.name}</div>
+      <div class="h-date">${h.date} <span class="hbadge b-${h.type}">${h.type}</span> <b>${when}</b></div>
+    </div>`;
+  }).join('');
+}
+
+/* ── NAV ── */
+function prevWeek(){weekStart=addDays(weekStart,-7);render();}
+function nextWeek(){weekStart=addDays(weekStart,7);render();}
+function goToday(){weekStart=getWeekStart(new Date());mcBase=new Date(today.getFullYear(),today.getMonth(),1);render();}
+
+/* ── PASTE MODAL ── */
+function openPasteModal(){
+  const days=Array.from({length:7},(_,i)=>addDays(weekStart,i));
+  const todayDs=fmt(today);
+  pasteTargetDate=days.some(d=>fmt(d)===todayDs)?todayDs:fmt(days[0]);
+  document.getElementById('dayPickBtns').innerHTML=days.map(d=>{
+    const ds=fmt(d),hols=getHols(ds);
+    return`<button class="day-pick-btn${ds===pasteTargetDate?' sel':''}" onclick="selectPasteDay('${ds}',this)">${d.getDate()}(${DAY_KO[d.getDay()]})${hols.length?' 🇰🇷':''}</button>`;
+  }).join('');
+  document.getElementById('pasteInput').value='';
+  document.getElementById('pasteHint').textContent='';
+  document.getElementById('pastePreview').classList.remove('show');
+  document.getElementById('pastePreview').innerHTML='';
+  document.getElementById('pasteOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('pasteInput').focus(),100);
+}
+function closePasteModal(e){
+  if(!e||e.target===document.getElementById('pasteOverlay'))
+    document.getElementById('pasteOverlay').classList.remove('open');
+}
+function selectPasteDay(ds,btn){
+  pasteTargetDate=ds;
+  document.querySelectorAll('.day-pick-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+function switchPasteMode(mode,el){
+  pasteMode=mode;
+  document.querySelectorAll('.pmt').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const inp=document.getElementById('pasteInput');
+  inp.placeholder=mode==='task'
+    ?'패드에서 복사한 내용을 붙여넣기\n줄마다 별도 할 일로 추가됩니다\n예)\n- 기획서 초안\n- 팀 미팅 준비'
+    :'날짜 메모로 저장할 내용을 붙여넣기\n자유 형식 그대로 저장됩니다';
+  onPasteInput();
+}
+function onPasteInput(){
+  const val=document.getElementById('pasteInput').value.trim();
+  const hint=document.getElementById('pasteHint');
+  const prev=document.getElementById('pastePreview');
+  if(!val){hint.textContent='';prev.classList.remove('show');prev.innerHTML='';return;}
+  if(pasteMode==='task'){
+    const lines=val.split('\n').map(l=>l.replace(/^[-*•✓✔☑☐\[\]\s*xX]+/,'').trim()).filter(Boolean);
+    hint.textContent=`${lines.length}개 할 일로 변환됩니다`;
+    prev.innerHTML=lines.map(l=>`<div class="preview-item"><div class="preview-dot"></div>${esc(l)}</div>`).join('');
+    prev.classList.add('show');
+  } else {
+    hint.textContent=`${val.length}자 · 날짜 메모로 저장됩니다`;
+    prev.classList.remove('show');
+  }
+}
+function confirmPaste(){
+  const val=document.getElementById('pasteInput').value.trim();
+  if(!val||!pasteTargetDate)return;
+  if(pasteMode==='task'){
+    const lines=val.split('\n').map(l=>l.replace(/^[-*•✓✔☑☐\[\]\s*xX]+/,'').trim()).filter(Boolean);
+    if(!tasks[pasteTargetDate])tasks[pasteTargetDate]=[];
+    lines.forEach(title=>tasks[pasteTargetDate].push({title,memo:'',status:'todo',prio:'high'}));
+  } else {
+    const existing=dayMemos[pasteTargetDate]||'';
+    dayMemos[pasteTargetDate]=(existing?existing+'\n\n──────\n':'')+new Date().toLocaleString('ko-KR')+'\n'+val;
+  }
+  saveData(); // 데이터 저장
+  document.getElementById('pasteOverlay').classList.remove('open');
+  render();
+}
+
+/* ── INIT ── */
+loadData(); // 시작할 때 로컬 스토리지에서 데이터 불러오기
+render();
+</script>
+</body>
+</html>
