@@ -320,23 +320,22 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <script>
 /* ── 구글 시트 API 연동 세팅 ── */
+// 기존에 발급받은 네 주소 그대로 뒀어!
 const GAS_URL = "https://script.google.com/macros/s/AKfycbx6r6V6gj5MtfQ_2opYne8gUbLlGmjqOw6FQewfNmrQJ6WOGhb74zOwSTUATARfG7HjxA/exec";
 
 async function sendToCloud(action, payload) {
   try {
     fetch(GAS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // CORS 에러 방지를 위해 text/plain 사용
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: action,
-        sheetName: action === 'addTask' ? 'Tasks' : 'DayMemos',
+        sheetName: action === 'saveDayMemo' ? 'DayMemos' : 'Tasks',
         ...payload
       })
-    }).then(res => console.log("☁️ 구글 시트 전송 완료:", action))
+    }).then(res => console.log("☁️ 구글 시트 동기화:", action))
       .catch(err => console.error("전송 에러:", err));
-  } catch (e) {
-    console.error("클라우드 API 호출 실패:", e);
-  }
+  } catch (e) {}
 }
 
 /* ── HOLIDAYS ── */
@@ -555,24 +554,48 @@ function makeTaskCard(ds,idx,t){
   return card;
 }
 
+// 🚀 상태 변경 시 구글 시트로 업데이트 요청 전송
 function changeStatus(ds,idx,val){
   if(tasks[ds]&&tasks[ds][idx]){
     tasks[ds][idx].status=val;
     saveData(); 
+    
+    if (tasks[ds][idx].id) {
+      sendToCloud('updateStatus', {
+        id: tasks[ds][idx].id,
+        status: val
+      });
+    }
     render();
   }
 }
+
+// 🚀 할 일 메모 변경 시 구글 시트로 업데이트 요청 전송
 function saveTaskMemo(ds,idx,val){
   if(tasks[ds]&&tasks[ds][idx]){
     tasks[ds][idx].memo=val.trim();
     saveData(); 
+    
+    if (tasks[ds][idx].id) {
+      sendToCloud('updateMemo', {
+        id: tasks[ds][idx].id,
+        memo: val.trim()
+      });
+    }
   }
   delete editingMemo[ds+'_'+idx];
   render();
 }
+
+// 🚀 삭제 시 구글 시트로 삭제 요청 전송
 function deleteTask(ds,idx){
+  const delId = tasks[ds][idx].id; // 지우기 전에 ID 백업
   tasks[ds].splice(idx,1);
   saveData(); 
+  
+  if (delId) {
+    sendToCloud('deleteTask', { id: delId });
+  }
   render();
 }
 
@@ -588,7 +611,7 @@ function closeAddForm(ds){
 }
 function addFormKey(e,ds){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();addTask(ds);}if(e.key==='Escape')closeAddForm(ds);}
 
-// 🚀 구글 시트 연동: 할 일 추가 
+// 🚀 할 일 추가 시 고유 ID 생성 후 함께 전송
 function addTask(ds){
   const titleEl=document.getElementById('ati-'+ds);
   const memoEl=document.getElementById('ami-'+ds);
@@ -597,12 +620,15 @@ function addTask(ds){
   if(!title)return;
   if(!tasks[ds])tasks[ds]=[];
   
-  const newTask = {title, memo, status:'todo', prio:selPrio[ds]||'high'};
+  // 무작위 고유 ID 생성 (시트에서 행을 찾기 위한 식별자)
+  const newId = Date.now().toString(36) + Math.random().toString(36).substring(2,7);
+  
+  const newTask = {id: newId, title, memo, status:'todo', prio:selPrio[ds]||'high'};
   tasks[ds].push(newTask);
   saveData(); 
 
-  // 구글 시트로 백업 전송
   sendToCloud('addTask', {
+    id: newId,
     date: ds,
     title: newTask.title,
     memo: newTask.memo,
@@ -621,7 +647,6 @@ function setPrio(ds,p){
   });
 }
 
-// 🚀 구글 시트 연동: 날짜 메모 추가
 function toggleDayMemoEdit(ds){
   if(editingDayMemo[ds]){
     const el=document.getElementById('dmt-'+ds);
@@ -629,7 +654,6 @@ function toggleDayMemoEdit(ds){
       dayMemos[ds]=el.value;
       saveData(); 
       
-      // 구글 시트로 백업 전송
       sendToCloud('saveDayMemo', {
         date: ds,
         content: el.value
@@ -731,7 +755,6 @@ function onPasteInput(){
   }
 }
 
-// 🚀 구글 시트 연동: 다중 데이터(모달) 붙여넣기
 function confirmPaste(){
   const val=document.getElementById('pasteInput').value.trim();
   if(!val||!pasteTargetDate)return;
@@ -741,9 +764,11 @@ function confirmPaste(){
     if(!tasks[pasteTargetDate])tasks[pasteTargetDate]=[];
     
     lines.forEach(title=>{
-      tasks[pasteTargetDate].push({title,memo:'',status:'todo',prio:'high'});
-      // 구글 시트로 각각 전송
+      const newId = Date.now().toString(36) + Math.random().toString(36).substring(2,7); // 🚀 복붙 시에도 고유 ID 생성
+      tasks[pasteTargetDate].push({id: newId, title, memo:'', status:'todo', prio:'high'});
+      
       sendToCloud('addTask', {
+        id: newId,
         date: pasteTargetDate,
         title: title,
         memo: '',
@@ -755,7 +780,7 @@ function confirmPaste(){
     const existing=dayMemos[pasteTargetDate]||'';
     const newMemo = (existing?existing+'\n\n──────\n':'')+new Date().toLocaleString('ko-KR')+'\n'+val;
     dayMemos[pasteTargetDate] = newMemo;
-    // 구글 시트로 전송
+    
     sendToCloud('saveDayMemo', {
       date: pasteTargetDate,
       content: newMemo
