@@ -319,6 +319,26 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <script>
+/* ── 구글 시트 API 연동 세팅 ── */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx6r6V6gj5MtfQ_2opYne8gUbLlGmjqOw6FQewfNmrQJ6WOGhb74zOwSTUATARfG7HjxA/exec";
+
+async function sendToCloud(action, payload) {
+  try {
+    fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // CORS 에러 방지를 위해 text/plain 사용
+      body: JSON.stringify({
+        action: action,
+        sheetName: action === 'addTask' ? 'Tasks' : 'DayMemos',
+        ...payload
+      })
+    }).then(res => console.log("☁️ 구글 시트 전송 완료:", action))
+      .catch(err => console.error("전송 에러:", err));
+  } catch (e) {
+    console.error("클라우드 API 호출 실패:", e);
+  }
+}
+
 /* ── HOLIDAYS ── */
 const HOLIDAYS=[
   {date:'2025-01-01',name:'신정',type:'국경일'},
@@ -346,12 +366,12 @@ HOLIDAYS.forEach(h=>{HMAP[h.date]=HMAP[h.date]||[];HMAP[h.date].push(h);});
 const today=new Date();
 let weekStart=getWeekStart(new Date());
 let mcBase=new Date(today.getFullYear(),today.getMonth(),1);
-let tasks={};      // {ds:[{title,memo,status,prio}]}
-let dayMemos={};   // {ds:string}
+let tasks={};      
+let dayMemos={};   
 let pasteMode='task';
 let pasteTargetDate=null;
 let selPrio={};
-let editingMemo={}; // key = ds+'_'+idx
+let editingMemo={}; 
 let editingDayMemo={};
 
 const STATUS_LIST=[
@@ -374,14 +394,18 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 
 /* ── LOCAL STORAGE (데이터 영구 보존) ── */
 function loadData() {
-  const savedTasks = localStorage.getItem('planner_tasks');
-  const savedMemos = localStorage.getItem('planner_memos');
-  if (savedTasks) tasks = JSON.parse(savedTasks);
-  if (savedMemos) dayMemos = JSON.parse(savedMemos);
+  try {
+    const savedTasks = localStorage.getItem('planner_tasks');
+    const savedMemos = localStorage.getItem('planner_memos');
+    if (savedTasks) tasks = JSON.parse(savedTasks);
+    if (savedMemos) dayMemos = JSON.parse(savedMemos);
+  } catch(e) {}
 }
 function saveData() {
-  localStorage.setItem('planner_tasks', JSON.stringify(tasks));
-  localStorage.setItem('planner_memos', JSON.stringify(dayMemos));
+  try {
+    localStorage.setItem('planner_tasks', JSON.stringify(tasks));
+    localStorage.setItem('planner_memos', JSON.stringify(dayMemos));
+  } catch(e) {}
 }
 
 /* ── RENDER ── */
@@ -391,7 +415,6 @@ function render(){
   document.getElementById('topMonth').textContent=days[0].getFullYear()+'년 '+months;
   document.getElementById('topRange').textContent=fmt(days[0])+' ~ '+fmt(days[6]);
 
-  /* Day headers */
   const hr=document.getElementById('dayHeaderRow');
   hr.innerHTML='';
   days.forEach(d=>{
@@ -406,7 +429,6 @@ function render(){
     </div>`;
   });
 
-  /* Columns */
   const tr=document.getElementById('taskRow');
   tr.innerHTML='';
   days.forEach(d=>{
@@ -416,20 +438,18 @@ function render(){
     const col=document.createElement('div');
     col.className=cls;
 
-    /* tasks */
     const ta=document.createElement('div');
     ta.className='tasks-area';
     (tasks[ds]||[]).forEach((t,i)=>ta.appendChild(makeTaskCard(ds,i,t)));
     col.appendChild(ta);
 
-    /* add form */
     const aa=document.createElement('div');
     aa.className='add-task-area';
     aa.innerHTML=`
       <div class="add-btn" onclick="openAddForm('${ds}')">+ 할 일 추가</div>
       <div class="add-form" id="af-${ds}">
         <input class="add-title-input" id="ati-${ds}" placeholder="할 일 제목" onkeydown="addFormKey(event,'${ds}')"/>
-        <textarea class="add-memo-input" id="ami-${ds}" placeholder="메모 (선택) — 패드 내용 붙여넣기 가능" rows="2"></textarea>
+        <textarea class="add-memo-input" id="ami-${ds}" placeholder="메모 (선택)" rows="2"></textarea>
         <div class="add-form-row">
           <div class="prio-btns">
             <div class="pb ph on" id="ph-${ds}" onclick="setPrio('${ds}','high')" title="높음"></div>
@@ -442,7 +462,6 @@ function render(){
       </div>`;
     col.appendChild(aa);
 
-    /* day memo */
     const dm=document.createElement('div');
     dm.className='day-memo-area';
     const memo=dayMemos[ds]||'';
@@ -480,7 +499,6 @@ function makeTaskCard(ds,idx,t){
   const card=document.createElement('div');
   card.className=`task-card ${st.cardCls}`;
 
-  /* top row: prio dot + title + delete */
   const top=document.createElement('div');
   top.className='task-card-top';
   const prioClass=t.prio==='high'?'p-high':t.prio==='low'?'p-low':'p-mid';
@@ -490,7 +508,6 @@ function makeTaskCard(ds,idx,t){
     <span class="task-del" onclick="deleteTask('${ds}',${idx})">✕</span>`;
   card.appendChild(top);
 
-  /* status button row */
   const sr=document.createElement('div');
   sr.className='task-status-row';
   const cur=t.status||'todo';
@@ -508,7 +525,6 @@ function makeTaskCard(ds,idx,t){
   });
   card.appendChild(sr);
 
-  /* memo */
   const ma=document.createElement('div');
   ma.className='task-memo-area';
   const key=ds+'_'+idx;
@@ -542,21 +558,21 @@ function makeTaskCard(ds,idx,t){
 function changeStatus(ds,idx,val){
   if(tasks[ds]&&tasks[ds][idx]){
     tasks[ds][idx].status=val;
-    saveData(); // 데이터 저장
+    saveData(); 
     render();
   }
 }
 function saveTaskMemo(ds,idx,val){
   if(tasks[ds]&&tasks[ds][idx]){
     tasks[ds][idx].memo=val.trim();
-    saveData(); // 데이터 저장
+    saveData(); 
   }
   delete editingMemo[ds+'_'+idx];
   render();
 }
 function deleteTask(ds,idx){
   tasks[ds].splice(idx,1);
-  saveData(); // 데이터 저장
+  saveData(); 
   render();
 }
 
@@ -571,6 +587,8 @@ function closeAddForm(ds){
   document.getElementById('ami-'+ds).value='';
 }
 function addFormKey(e,ds){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();addTask(ds);}if(e.key==='Escape')closeAddForm(ds);}
+
+// 🚀 구글 시트 연동: 할 일 추가 
 function addTask(ds){
   const titleEl=document.getElementById('ati-'+ds);
   const memoEl=document.getElementById('ami-'+ds);
@@ -578,8 +596,20 @@ function addTask(ds){
   const memo=(memoEl.value||'').trim();
   if(!title)return;
   if(!tasks[ds])tasks[ds]=[];
-  tasks[ds].push({title,memo,status:'todo',prio:selPrio[ds]||'high'});
-  saveData(); // 데이터 저장
+  
+  const newTask = {title, memo, status:'todo', prio:selPrio[ds]||'high'};
+  tasks[ds].push(newTask);
+  saveData(); 
+
+  // 구글 시트로 백업 전송
+  sendToCloud('addTask', {
+    date: ds,
+    title: newTask.title,
+    memo: newTask.memo,
+    status: newTask.status,
+    prio: newTask.prio
+  });
+
   closeAddForm(ds);
   render();
 }
@@ -590,12 +620,20 @@ function setPrio(ds,p){
     if(el)el.classList.toggle('on',x===p);
   });
 }
+
+// 🚀 구글 시트 연동: 날짜 메모 추가
 function toggleDayMemoEdit(ds){
   if(editingDayMemo[ds]){
     const el=document.getElementById('dmt-'+ds);
     if(el) {
       dayMemos[ds]=el.value;
-      saveData(); // 데이터 저장
+      saveData(); 
+      
+      // 구글 시트로 백업 전송
+      sendToCloud('saveDayMemo', {
+        date: ds,
+        content: el.value
+      });
     }
     delete editingDayMemo[ds];
   } else {
@@ -604,7 +642,7 @@ function toggleDayMemoEdit(ds){
   render();
 }
 
-/* ── MINI CAL ── */
+/* ── MINI CAL & UPCOMING ── */
 function renderMiniCal(){
   const y=mcBase.getFullYear(),m=mcBase.getMonth();
   document.getElementById('mcTitle').textContent=y+'년 '+(m+1)+'월';
@@ -625,8 +663,6 @@ function renderMiniCal(){
 function mcPrev(){mcBase.setMonth(mcBase.getMonth()-1);renderMiniCal();}
 function mcNext(){mcBase.setMonth(mcBase.getMonth()+1);renderMiniCal();}
 function jumpTo(ds){weekStart=getWeekStart(new Date(ds));render();}
-
-/* ── UPCOMING ── */
 function renderUpcoming(){
   const ts=fmt(today);
   const list=HOLIDAYS.filter(h=>h.date>=ts).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
@@ -640,8 +676,6 @@ function renderUpcoming(){
     </div>`;
   }).join('');
 }
-
-/* ── NAV ── */
 function prevWeek(){weekStart=addDays(weekStart,-7);render();}
 function nextWeek(){weekStart=addDays(weekStart,7);render();}
 function goToday(){weekStart=getWeekStart(new Date());mcBase=new Date(today.getFullYear(),today.getMonth(),1);render();}
@@ -696,24 +730,44 @@ function onPasteInput(){
     prev.classList.remove('show');
   }
 }
+
+// 🚀 구글 시트 연동: 다중 데이터(모달) 붙여넣기
 function confirmPaste(){
   const val=document.getElementById('pasteInput').value.trim();
   if(!val||!pasteTargetDate)return;
+  
   if(pasteMode==='task'){
     const lines=val.split('\n').map(l=>l.replace(/^[-*•✓✔☑☐\[\]\s*xX]+/,'').trim()).filter(Boolean);
     if(!tasks[pasteTargetDate])tasks[pasteTargetDate]=[];
-    lines.forEach(title=>tasks[pasteTargetDate].push({title,memo:'',status:'todo',prio:'high'}));
+    
+    lines.forEach(title=>{
+      tasks[pasteTargetDate].push({title,memo:'',status:'todo',prio:'high'});
+      // 구글 시트로 각각 전송
+      sendToCloud('addTask', {
+        date: pasteTargetDate,
+        title: title,
+        memo: '',
+        status: 'todo',
+        prio: 'high'
+      });
+    });
   } else {
     const existing=dayMemos[pasteTargetDate]||'';
-    dayMemos[pasteTargetDate]=(existing?existing+'\n\n──────\n':'')+new Date().toLocaleString('ko-KR')+'\n'+val;
+    const newMemo = (existing?existing+'\n\n──────\n':'')+new Date().toLocaleString('ko-KR')+'\n'+val;
+    dayMemos[pasteTargetDate] = newMemo;
+    // 구글 시트로 전송
+    sendToCloud('saveDayMemo', {
+      date: pasteTargetDate,
+      content: newMemo
+    });
   }
-  saveData(); // 데이터 저장
+  saveData(); 
   document.getElementById('pasteOverlay').classList.remove('open');
   render();
 }
 
 /* ── INIT ── */
-loadData(); // 시작할 때 로컬 스토리지에서 데이터 불러오기
+loadData(); 
 render();
 </script>
 </body>
