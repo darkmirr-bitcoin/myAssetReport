@@ -54,7 +54,7 @@ def main():
     df_coin['기록일자'] = now_str
     df_pen['기록일자'] = now_str
     
-    history_cols = ['기록일자', '티커', '현재가', '수량', '수익률']
+    history_cols = ['기록일자', '티커', '현재가', '수량', '수익률(%)']
     df_all = pd.concat([df_us[history_cols], df_coin[history_cols], df_pen[history_cols]], ignore_index=True)
     
     # History 탭에 상세 데이터 누적
