@@ -72,7 +72,7 @@ def process_asset_df(df, category, is_usd=False, is_open=True):
 
     if not is_open:
         print(f"💤 [{category}] 현지 시장 휴일입니다. 기존 시트 데이터를 유지합니다.")
-
+        
     # [핵심 수정 2] 휴장일이더라도 현재가가 0원이면(주말에 새로 샀을 때 등) 전 영업일 데이터를 강제로 한 번 긁어옴!
     for index, row in df.iterrows():
         ticker = str(row.get('티커', '')).strip()
@@ -89,6 +89,23 @@ def process_asset_df(df, category, is_usd=False, is_open=True):
                 for col, val in ind_data.items():
                     if col in df.columns:
                         df.at[index, col] = val
+            else:
+                # 🚀 [추가된 방어 로직] SPCX처럼 상장된 지 얼마 안 돼서 장기 지표(EMA100 등) 계산에 실패하더라도 현재가는 무조건 긁어오기!
+                try:
+                    if df_hist is not None and not df_hist.empty:
+                        if 'Close' in df_hist.columns:
+                            current_price = float(df_hist['Close'].iloc[-1])
+                        elif 'close' in df_hist.columns:
+                            current_price = float(df_hist['close'].iloc[-1])
+                        else:
+                            current_price = 0.0
+                        
+                        if current_price > 0:
+                            df.at[index, '현재가'] = round(current_price, 2) if is_usd else round(current_price, 0)
+                            print(f"⚠️ [{ticker}] 과거 데이터 부족으로 보조지표는 생략하고 현재가만 가져왔습니다.")
+                except Exception as e:
+                    print(f"❌ [{ticker}] 현재가 방어 로직 실패: {e}")
+
 
     # 평가금액 및 총합 계산
     if is_usd:
