@@ -104,14 +104,14 @@ def get_macro_ai_summary(indices_text, yield_text, score, pc_ratio, hy_spread):
         print(f"❌ AI 매크로 요약 에러: {e}")
         return "💡 [AI 진단 실패] 시장 상태를 분석하는 데 문제가 발생했습니다."
 
-def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_text, us_date_str):
+# 파라미터에 telegram_text 추가!
+def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_text, telegram_text, us_date_str):
     """종합 리포트 생성"""
     api_key = os.environ.get("GEMINI_API_KEY")
 
     prompt = f"""
     [SYSTEM CRITICAL INSTRUCTION]
     당신의 유일한 기준 날짜는 오직 무조건 **{us_date_str}** 입니다. 
-    제공되는 뉴스나 지표 데이터에 다른 날짜가 섞여 있더라도 전부 무시하고, 리포트의 모든 제목과 요약에는 반드시 **{us_date_str}** 하나만 사용해야 합니다.
 
     [데이터 1: 수집 뉴스]
     {news_text}
@@ -119,6 +119,9 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
     {sheet_data_text}
     [데이터 3: 거시 지표]
     {indices_text} {yield_text} {fng_text}
+    
+    [데이터 4: 텔레그램 전문가 매크로 브리핑]
+    {telegram_text}
 
     =========================================
     [출력 양식]
@@ -129,23 +132,20 @@ def generate_reports(news_text, sheet_data_text, yield_text, fng_text, indices_t
     (이곳에 3대 지수, VIX, 공포탐욕 지수, 국채 금리 데이터를 하나의 깔끔한 표로 정리해)
     
     **💡 거시 경제 & 시장 심리 분석 ({us_date_str} 기준):**
-    (표 바로 아래에 줄글로 상세하게 설명)
+    (표 바로 아래에 줄글로 상세하게 설명하되, [데이터 4: 텔레그램 전문가 매크로 브리핑]의 내용을 반드시 반영하여 깊이 있는 인사이트를 작성해)
 
     ## 2. 주요 액션 타겟 및 보유 종목 분석
-    (이곳에 AI 점수와 상관없이, 나의 '투자 룰셋'에 따라 당장 조치가 필요한 종목 위주로 표를 작성해 줘. 열: 종목명 | 티커 | 액션 시그널 | 핵심 요약)
+    (나의 '투자 룰셋'에 따라 당장 조치가 필요한 종목 위주로 표를 작성해 줘. 열: 종목명 | 티커 | 액션 시그널 | 핵심 요약)
 
     ---TELEGRAM_START---
     📊 **시장 요약 ({us_date_str})**
-    - (핵심 수치 및 매크로 한 줄 평)
+    - (텔레그램 매크로 브리핑 내용을 반영한 핵심 수치 및 매크로 한 줄 평)
     
     🚨 **오늘의 액션 플랜 (매매 시그널)**
-    - (나의 투자 룰셋에 따라 당장 액션이 필요한 보유 종목을 골라 [분할 익절], [전량 매도], [매수], [차익 실현] 태그를 달아 브리핑. 만약 오늘 당장 팔거나 살 종목이 없다면 "오늘은 포지션을 유지하며 관망합니다. [홀딩]" 이라고 출력)
-    - 예시: [분할 익절] NVDA - 볼린저 상단 터치. 50% 덜어냅니다.
-    - 예시: [전량 매도] SUI - EMA5 하향 이탈 및 MACD 데드크로스. 손절합니다.
-    - 예시: [매수] MSTR - 밴드 하단 이탈 & 시장 극도의 공포. 분할 접근 가능.
+    - (나의 투자 룰셋에 따라 당장 액션이 필요한 보유 종목을 골라 [분할 익절], [전량 매도], [매수], [차익 실현] 태그를 달아 브리핑)
     
     🛡️ **장기 투자 (연금/ETF)**
-    - (단기 노이즈는 무시하고 묵묵히 들고 가는 연금/장기 자산의 흐름을 긍정적인 [홀딩] 관점으로 짧게 요약)
+    - (단기 노이즈는 무시하고 묵묵히 들고 가는 연금/장기 자산의 흐름 요약)
     """
 
     try:
