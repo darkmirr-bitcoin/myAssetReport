@@ -5,6 +5,34 @@ import yfinance as yf
 
 # [추가됨] 분리된 AI 제너레이터 파일에서 매크로 요약 함수 불러오기
 from ai_generator import get_macro_ai_summary
+from bs4 import BeautifulSoup
+
+def fetch_telegram_macro():
+    """텔레그램 공개 채널에서 최신 거시 지표 브리핑 텍스트를 크롤링합니다."""
+    # 💡 웹 크롤링을 위해 네가 준 주소 중간에 '/s/'를 추가했어!
+    url = "https://t.me/s/sceret_taver/" 
+    
+    try:
+        # 봇(Bot)으로 차단당하는 걸 막기 위해 사람인 척하는 헤더 추가
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 텔레그램 메시지 본문이 담긴 태그 추출
+        messages = soup.find_all('div', class_='tgme_widget_message_text')
+        
+        if messages:
+            # 가장 마지막에 올라온 최신 메시지를 가져옴
+            latest_msg = messages[-1].get_text(separator='\n', strip=True)
+            return latest_msg
+        else:
+            return "최신 텔레그램 매크로 데이터를 찾을 수 없습니다."
+            
+    except Exception as e:
+        print(f"❌ 텔레그램 크롤링 에러: {e}")
+        return "텔레그램 데이터 연동 실패"
 
 def get_stock_news(ticker, limit=3):
     """yfinance를 활용해 해당 종목의 최신 영문 뉴스를 가져옵니다."""
