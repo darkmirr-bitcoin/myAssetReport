@@ -63,7 +63,7 @@ def main():
 
     # 4. History 누적용 전체 데이터 합치기
     df_us['기록일자'] = now_str
-    df_coin['기록일자'] = 제now_str
+    df_coin['기록일자'] = now_str
     df_pen['기록일자'] = now_str
     
     history_cols = ['기록일자', '티커', '현재가', '수량', '수익률(%)']
