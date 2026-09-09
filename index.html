@@ -1,100 +1,43 @@
 
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>일일 자산 리포트 (2026-09-08)</title>
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <h2>📊 일일 자산 리포트</h2>
-        <div class="summary-header">
-            <p>🕒 <strong>업데이트:</strong> 2026-09-08 14:20:39 (KST)</p>
-            <p>💵 <strong>적용 환율:</strong> 1달러 = <strong>1,341.03원</strong></p>
-        </div>
-        
-        <!-- 매크로 대시보드 삽입 -->
-        
-        <div class="macro-dashboard">
-            <h3>🌍 글로벌 매크로 지표</h3>
-            <div class="macro-cards">
-                <div class="macro-card">
-                    <h4>📈 주요 시장 지수</h4>
-                    <ul><li>S&P 500: 7,718.60 (전일 대비 <span class="neg">-29.11,</span> <span class="neg">-0.38%</span>) [미국 대형주 500개 전반의 흐름]</li><li>나스닥 (NASDAQ): 26,506.99 (전일 대비 <span class="neg">-77.07,</span> <span class="neg">-0.29%</span>) [기술주 및 성장주 중심의 흐름]</li><li>러셀 2000 (Russell 2000): 2,975.65 (전일 대비 <span class="pos">+7.38,</span> <span class="pos">+0.25%</span>) [미국 중소형주 흐름 (경기 민감도 반영)]</li><li>VIX (공포지수): 15.30 (전일 대비 <span class="pos">+0.77,</span> <span class="pos">+5.30%</span>) [S&P 500 옵션 기반 향후 30일 변동성 기대치]</li></ul>
-                </div>
-                <div class="macro-card">
-                    <h4>🏦 국채 금리</h4>
-                    <ul><li>미국 10년물 국채 금리: 4.784% (전일 대비 <span class="pos">+0.022%p</span>, <span class="pos">+0.46%</span>)</li><li>미국 30년물 국채 금리: 5.246% (전일 대비 <span class="pos">+0.003%p</span>, <span class="pos">+0.06%</span>)</li></ul>
-                </div>
-                <div class="macro-card">
-                    <h4>🧭 시장 심리</h4>
-                    <ul><li>CNN 공포탐욕 지수: 42점 (공포 😨) / 전일 대비 <span class="pos">+7</span>점 (<span class="pos">+20.00%</span>)</li><li>풋/콜 비율 (P/C Ratio): 0.74 [탐욕 (상승 베팅)] / 전일 대비 <span class="neg">-0.01</span></li><li>하이일드 스프레드: 1.23% [위험 선호] / 전일 대비 <span class="neg">-0.12%p</span></li><div class='ai-summary-line'><br><strong style='color:#d35400;'>💡 변동성 경계심이 고조된 가운데, 중소형주 강세와 타이트한 신용 스프레드에서 선별적 위험 선호가 포착됩니다.</strong></div></ul>
-                </div>
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>📊 퀀트 자산관리 리포트 (2026-09-08)</title>
+            <style>
+                body { font-family: 'Pretendard', 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: auto; color: #333; background-color: #f8f9fa; }
+                h1, h2, h3 { color: #1a1a1a; }
+                /* 최상단 액션 보드 스타일 */
+                .action-board { 
+                    background-color: #ffffff; 
+                    padding: 25px; 
+                    border-left: 8px solid #ff4d4d; 
+                    border-radius: 12px; 
+                    margin-bottom: 30px; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                }
+                .action-board h2 { margin-top: 0; color: #d32f2f; font-size: 1.5em; }
+                .action-board p { font-size: 1.05em; color: #555; margin-bottom: 0; }
+                /* 메인 콘텐츠 영역 스타일 */
+                .content-area { 
+                    background-color: #ffffff; 
+                    padding: 30px; 
+                    border-radius: 12px; 
+                    border: 1px solid #eaeaea; 
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="action-board">
+                <h2>🚨 오늘의 핵심 액션 플랜</h2>
+                <p><strong>감정을 철저히 배제하고 시스템의 신호를 따릅니다. 아래 본문의 시그널을 확인하고 즉시 포트폴리오를 리밸런싱하세요.</strong></p>
             </div>
-        </div>
-        
 
-        <!-- 자산 요약 테이블 -->
-        <h3 style="text-align: center; color: #2c3e50; margin-top: 40px;">💰 내 자산 현황</h3>
-        <table border="1" class="dataframe asset-table">
-  <thead>
-    <tr style="text-align: right;">
-      <th>자산군</th>
-      <th>투자원금(₩)</th>
-      <th>평가금액(₩)</th>
-      <th>평가손익(₩)</th>
-      <th>수익률(%)</th>
-      <th>전일대비 변동폭(₩)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>해외주식 (USD 변환)</td>
-      <td>₩37,702,522</td>
-      <td>₩33,390,373</td>
-      <td>₩-4,312,149</td>
-      <td><span class='neg'>-11.44%</span></td>
-      <td>₩-1,137,286</td>
-    </tr>
-    <tr>
-      <td>COIN</td>
-      <td>₩31,784,533</td>
-      <td>₩12,600,864</td>
-      <td>₩-19,183,669</td>
-      <td><span class='neg'>-60.36%</span></td>
-      <td>₩-86,135</td>
-    </tr>
-    <tr>
-      <td>개인연금</td>
-      <td>₩26,467,632</td>
-      <td>₩31,396,110</td>
-      <td>₩4,928,478</td>
-      <td><span class='pos'>+18.62%</span></td>
-      <td>₩55,781</td>
-    </tr>
-    <tr>
-      <td>총 자산</td>
-      <td>₩95,954,688</td>
-      <td>₩77,387,347</td>
-      <td>₩-18,567,341</td>
-      <td><span class='neg'>-19.35%</span></td>
-      <td>₩-1,167,640</td>
-    </tr>
-  </tbody>
-</table>
-
-        <div class="report-links">
-            <h3>🔗 연관 시황 리포트 바로가기</h3>
-            <div class="link-cards">
-                <a href="https://darkmirr-bitcoin.github.io/NasdoqNewsReport/latest.html" target="_blank" class="link-card">
-                    <span class="icon">📈</span><span class="text">미증시 시황 리포트</span>
-                </a>
-                <a href="https://darkmirr-bitcoin.github.io/CryptoReport/" target="_blank" class="link-card">
-                    <span class="icon">🪙</span><span class="text">암호화폐 시황 리포트</span>
-                </a>
+            <div class="content-area">
+                웹 리포트 생성 완료
             </div>
-        </div>
-    </body>
-    </html>
-    
+        </body>
+        </html>
+        
