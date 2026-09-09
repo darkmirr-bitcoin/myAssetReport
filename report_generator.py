@@ -28,11 +28,13 @@ def format_macro_text(text):
         
     return html_out
 
-def generate_reports(df_today, exchange_rate, macro_data=None):
+# 💡 에러 방지를 위해 us_date_str 파라미터 추가!
+def generate_reports(df_today, exchange_rate, macro_data=None, us_date_str=None):
     """HTML 리포트와 일자별 마크다운을 생성 (매크로 데이터 포함)"""
     
     now = pd.Timestamp.now('Asia/Seoul')
-    date_str = now.strftime('%Y-%m-%d')
+    # us_date_str이 넘어오면 쓰고, 없으면 현재 날짜 사용
+    date_str = us_date_str if us_date_str else now.strftime('%Y-%m-%d')
     time_str = now.strftime('%Y-%m-%d %H:%M:%S')
 
     df_html = df_today.copy()
@@ -46,7 +48,10 @@ def generate_reports(df_today, exchange_rate, macro_data=None):
 
     html_table = df_html.to_html(index=False, classes='asset-table', escape=False)
     
-    # 매크로 데이터 HTML 조립
+    # 💡 텔레그램 크롤링 텍스트 꺼내오기
+    telegram_text = macro_data.get('telegram', '전문가 브리핑을 불러오지 못했습니다.') if macro_data else ""
+    
+    # 매크로 데이터 HTML 조립 (여기에 format_macro_text 함수가 있다고 가정)
     macro_html = ""
     if macro_data:
         macro_html = f"""
@@ -55,16 +60,22 @@ def generate_reports(df_today, exchange_rate, macro_data=None):
             <div class="macro-cards">
                 <div class="macro-card">
                     <h4>📈 주요 시장 지수</h4>
-                    <ul>{format_macro_text(macro_data.get('indices', ''))}</ul>
+                    <ul>{{format_macro_text(macro_data.get('indices', ''))}}</ul>
                 </div>
                 <div class="macro-card">
                     <h4>🏦 국채 금리</h4>
-                    <ul>{format_macro_text(macro_data.get('yields', ''))}</ul>
+                    <ul>{{format_macro_text(macro_data.get('yields', ''))}}</ul>
                 </div>
                 <div class="macro-card">
                     <h4>🧭 시장 심리</h4>
-                    <ul>{format_macro_text(macro_data.get('fng', ''))}</ul>
+                    <ul>{{format_macro_text(macro_data.get('fng', ''))}}</ul>
                 </div>
+            </div>
+            
+            <!-- 🚀 텔레그램 매크로 브리핑 박스 추가 (디자인 찰떡 적용!) -->
+            <div class="telegram-board" style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #0088cc; margin-top: 20px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="color: #0088cc; margin-top: 0; font-size: 1.1em;">📱 시크릿타버 거시경제 브리핑</h4>
+                <p style="white-space: pre-line; margin-bottom: 0; font-size: 0.95em; color: #444;">{telegram_text}</p>
             </div>
         </div>
         """
@@ -118,3 +129,6 @@ def generate_reports(df_today, exchange_rate, macro_data=None):
     with open(f"reports/{date_str}.md", "w", encoding="utf-8") as f: f.write(md_content)
     
     print(f"✅ 리포트 생성 완료 (index.html, reports/{date_str}.md)")
+    
+    # 💡 main.py에서 unpacking 에러가 나지 않도록 더미 텍스트 2개를 반환해줌!
+    return "웹 리포트 생성 완료", "텔레그램 전송 준비 완료"
