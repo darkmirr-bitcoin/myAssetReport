@@ -7,3 +7,4 @@ pyupbit
 requests
 pandas-ta
 feedparser
+google-generativeai
