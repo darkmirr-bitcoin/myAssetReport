@@ -1,6 +1,7 @@
 import feedparser
 import requests
 import datetime
+import pytz  # 💡 시간대 계산을 위해 추가됨
 import yfinance as yf
 
 # [추가됨] 분리된 AI 제너레이터 파일에서 매크로 요약 함수 불러오기
@@ -8,27 +9,57 @@ from ai_generator import get_macro_ai_summary
 from bs4 import BeautifulSoup
 
 def fetch_telegram_macro():
-    """텔레그램 공개 채널에서 최신 거시 지표 브리핑 텍스트를 크롤링합니다."""
-    # 💡 웹 크롤링을 위해 네가 준 주소 중간에 '/s/'를 추가했어!
+    """텔레그램 채널에서 D-1 기준 '미국/한국 증시 마감 브리핑' 텍스트만 추출합니다."""
     url = "https://t.me/s/sceret_taver/" 
     
     try:
-        # 봇(Bot)으로 차단당하는 걸 막기 위해 사람인 척하는 헤더 추가
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 텔레그램 메시지 본문이 담긴 태그 추출
-        messages = soup.find_all('div', class_='tgme_widget_message_text')
+        # 텔레그램 메시지 단위 블록들을 모두 찾음 (시간 정보와 텍스트를 같이 가져오기 위함)
+        messages = soup.find_all('div', class_='tgme_widget_message')
         
-        if messages:
-            # 가장 마지막에 올라온 최신 메시지를 가져옴
-            latest_msg = messages[-1].get_text(separator='\n', strip=True)
-            return latest_msg
+        # 한국 시간 기준 설정
+        kst = pytz.timezone('Asia/Seoul')
+        now = datetime.datetime.now(kst)
+        # 배치 도는 시간 고려, 넉넉하게 최근 48시간(D-1~D-2 일부) 이내의 글만 탐색
+        target_time_limit = now - datetime.timedelta(days=2) 
+        
+        collected_texts = []
+        
+        for msg in messages:
+            # 1. 메시지 작성 시간 추출
+            time_tag = msg.find('time', class_='time')
+            if not time_tag or not time_tag.has_attr('datetime'):
+                continue
+                
+            # UTC 시간을 한국 시간(KST)으로 변환
+            msg_time_utc = datetime.datetime.fromisoformat(time_tag['datetime'].replace('Z', '+00:00'))
+            msg_time_kst = msg_time_utc.astimezone(kst)
+            
+            # 너무 오래된 글(target_time_limit 이전)은 패스
+            if msg_time_kst < target_time_limit:
+                continue
+            
+            # 2. 메시지 내용 추출 및 키워드 필터링
+            text_div = msg.find('div', class_='tgme_widget_message_text')
+            if text_div:
+                text = text_div.get_text(separator='\n', strip=True)
+                
+                # 띄어쓰기 변수(오타) 방어를 위해 공백 제거 후 키워드 검사
+                text_no_space = text.replace(" ", "")
+                if "미국증시마감브리핑" in text_no_space or "한국증시마감브리핑" in text_no_space:
+                    # 조건에 맞는 글만 시간 태그를 붙여서 수집
+                    collected_texts.append(f"[{msg_time_kst.strftime('%m월 %d일 %H:%M')} 발행]\n{text}")
+        
+        # 수집된 마감 브리핑이 있다면 합쳐서 반환, 없으면 예외 메시지
+        if collected_texts:
+            return "\n\n========================\n\n".join(collected_texts)
         else:
-            return "최신 텔레그램 매크로 데이터를 찾을 수 없습니다."
+            return "최근 1~2일 내의 미국/한국 증시 마감 브리핑 데이터를 찾을 수 없습니다."
             
     except Exception as e:
         print(f"❌ 텔레그램 크롤링 에러: {e}")
@@ -105,9 +136,6 @@ def get_treasury_yields():
         yield_text = f"국채 금리 데이터를 불러오지 못했습니다. ({e})"
     return yield_text
 
-# [핵심 업데이트] CNN 지수 3개(공포탐욕, 풋콜, 스프레드) + AI 연동!
-# macro_data.py 내부의 get_fear_and_greed 함수 교체
-
 def get_fear_and_greed(indices_text="", yield_text=""):
     """CNN 실시간 지표 3개 수집 후, 지수/금리 데이터를 합쳐 AI 요약을 추가하는 함수"""
     print("시장 심리 및 AI 요약 데이터 가져오는 중...")
@@ -143,7 +171,7 @@ def get_fear_and_greed(indices_text="", yield_text=""):
             
             fng_text_list.append(f"- CNN 공포탐욕 지수: {score}점 ({rating_ko}) / 전일 대비 {sign}{change}점 ({sign}{pct_change:.2f}%)")
 
-          # 2. 풋/콜 비율 (Put/Call Ratio)
+            # 2. 풋/콜 비율 (Put/Call Ratio)
             if 'put_call_options' in data and 'data' in data['put_call_options']:
                 pc_data = data['put_call_options']['data']
                 curr_node = pc_data[-1]
@@ -186,6 +214,7 @@ def get_fear_and_greed(indices_text="", yield_text=""):
                 hy_sign = "+" if hy_change > 0 else ""
                 hy_status = "위험 회피" if curr_hy > 3.0 else "위험 선호" if curr_hy < 2.0 else "중립"
                 fng_text_list.append(f"- 하이일드 스프레드: {curr_hy:.2f}% [{hy_status}] / 전일 대비 {hy_sign}{hy_change:.2f}%p")
+                
             # 🌟 [AI 로직 연동] 지수와 금리 텍스트를 함께 던져서 결과를 받아옴!
             ai_summary = get_macro_ai_summary(indices_text, yield_text, score, curr_pc, curr_hy)
             fng_text_list.append(f"<br><strong style='color:#d35400;'>{ai_summary}</strong>")
