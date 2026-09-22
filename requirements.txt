@@ -8,3 +8,4 @@ requests
 pandas-ta
 feedparser
 google-generativeai
+pytz
