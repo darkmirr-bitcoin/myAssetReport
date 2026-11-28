@@ -8,63 +8,110 @@ import yfinance as yf
 from ai_generator import get_macro_ai_summary
 from bs4 import BeautifulSoup
 
-def fetch_telegram_macro():
-    """텔레그램 채널에서 D-1 기준 '미국/한국 증시 마감 브리핑' 텍스트만 추출합니다."""
-    url = "https://t.me/s/sceret_taver/" 
-    
+def fetch_telegram_macro(hours_back=48, max_pages=3):
+    """텔레그램 채널에서 최근 hours_back 시간 내 '글로벌 주요 뉴스정리' 게시글만 추출한다."""
+    base_url = "https://t.me/s/sceret_taver"
+    target_keywords = ["글로벌주요뉴스정리"]  # 공백·줄바꿈 제거 후 매칭 (문구 추가 가능)
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+
+    kst = pytz.timezone("Asia/Seoul")
+    now = datetime.datetime.now(kst)
+    target_time_limit = now - datetime.timedelta(hours=hours_back)
+
+    collected = {}  # {post_id: (msg_time_kst, formatted_text)}
+    before_id = None
+    total_scanned = 0
+
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 텔레그램 메시지 단위 블록들을 모두 찾음 (시간 정보와 텍스트를 같이 가져오기 위함)
-        messages = soup.find_all('div', class_='tgme_widget_message')
-        
-        # 한국 시간 기준 설정
-        kst = pytz.timezone('Asia/Seoul')
-        now = datetime.datetime.now(kst)
-        # 배치 도는 시간 고려, 넉넉하게 최근 48시간(D-1~D-2 일부) 이내의 글만 탐색
-        target_time_limit = now - datetime.timedelta(days=2) 
-        
-        collected_texts = []
-        
-        for msg in messages:
-            # 1. 메시지 작성 시간 추출
-            time_tag = msg.find('time', class_='time')
-            if not time_tag or not time_tag.has_attr('datetime'):
-                continue
-                
-            # UTC 시간을 한국 시간(KST)으로 변환
-            msg_time_utc = datetime.datetime.fromisoformat(time_tag['datetime'].replace('Z', '+00:00'))
-            msg_time_kst = msg_time_utc.astimezone(kst)
-            
-            # 너무 오래된 글(target_time_limit 이전)은 패스
-            if msg_time_kst < target_time_limit:
-                continue
-            
-            # 2. 메시지 내용 추출 및 키워드 필터링
-            text_div = msg.find('div', class_='tgme_widget_message_text')
-            if text_div:
-                text = text_div.get_text(separator='\n', strip=True)
-                
-                # 띄어쓰기 변수(오타) 방어를 위해 공백 제거 후 키워드 검사
-                text_no_space = text.replace(" ", "")
-                if "미국증시마감브리핑" in text_no_space or "한국증시마감브리핑" in text_no_space:
-                    # 조건에 맞는 글만 시간 태그를 붙여서 수집
-                    collected_texts.append(f"[{msg_time_kst.strftime('%m월 %d일 %H:%M')} 발행]\n{text}")
-        
-        # 수집된 마감 브리핑이 있다면 합쳐서 반환, 없으면 예외 메시지
-        if collected_texts:
-            return "\n\n========================\n\n".join(collected_texts)
-        else:
-            return "최근 1~2일 내의 미국/한국 증시 마감 브리핑 데이터를 찾을 수 없습니다."
-            
+        for page in range(max_pages):
+            url = f"{base_url}?before={before_id}" if before_id else base_url
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                print(f"❌ 텔레그램 페이지 응답 오류 (status={response.status_code})")
+                break
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            messages = soup.find_all("div", class_="tgme_widget_message")
+            if not messages:
+                print(f"⚠️ 텔레그램 메시지 블록을 찾지 못함 (page={page + 1})")
+                break
+
+            page_post_ids = []
+            oldest_time_on_page = None
+
+            for msg in messages:
+                total_scanned += 1
+
+                # 게시글 ID 추출 (중복 제거 + 이전 페이지 이동용)
+                post_attr = msg.get("data-post", "")
+                post_id = None
+                if "/" in post_attr:
+                    try:
+                        post_id = int(post_attr.split("/")[-1])
+                        page_post_ids.append(post_id)
+                    except ValueError:
+                        pass
+
+                # 작성 시간 파싱
+                time_tag = msg.find("time")
+                if not time_tag or not time_tag.has_attr("datetime"):
+                    continue
+
+                msg_time_utc = datetime.datetime.fromisoformat(
+                    time_tag["datetime"].replace("Z", "+00:00")
+                )
+                msg_time_kst = msg_time_utc.astimezone(kst)
+
+                if oldest_time_on_page is None or msg_time_kst < oldest_time_on_page:
+                    oldest_time_on_page = msg_time_kst
+
+                if msg_time_kst < target_time_limit:
+                    continue
+
+                # 본문 추출 후 공백/줄바꿈 전부 제거해 키워드 검사
+                text_div = msg.find("div", class_="tgme_widget_message_text")
+                if not text_div:
+                    continue
+
+                text = text_div.get_text(separator="\n", strip=True)
+                normalized_text = "".join(text.split())
+
+                if any(kw in normalized_text for kw in target_keywords):
+                    key = post_id if post_id is not None else msg_time_kst.isoformat()
+                    collected[key] = (
+                        msg_time_kst,
+                        f"[{msg_time_kst.strftime('%m월 %d일 %H:%M')} 발행]\n{text}",
+                    )
+
+            # 기준 시간 이전까지 내려왔거나 더 이상 이전 글이 없으면 종료
+            if oldest_time_on_page and oldest_time_on_page < target_time_limit:
+                break
+            if not page_post_ids:
+                break
+
+            next_before = min(page_post_ids)
+            if next_before == before_id:
+                break
+            before_id = next_before
+
+        print(f"🔎 텔레그램 스캔 완료: 총 {total_scanned}건 확인 / 키워드 일치 {len(collected)}건")
+
+        if collected:
+            sorted_items = sorted(collected.values(), key=lambda x: x[0])
+            return "\n\n========================\n\n".join(item[1] for item in sorted_items)
+
+        return f"최근 {hours_back}시간 내 '글로벌 주요 뉴스정리' 게시글을 찾을 수 없습니다."
+
     except Exception as e:
         print(f"❌ 텔레그램 크롤링 에러: {e}")
         return "텔레그램 데이터 연동 실패"
-
+        
 def get_stock_news(ticker, limit=3):
     """yfinance를 활용해 해당 종목의 최신 영문 뉴스를 가져옵니다."""
     try:
