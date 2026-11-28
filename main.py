@@ -1,340 +1,377 @@
-import html
-import os
-import re
-from datetime import datetime
-from typing import Any, Dict, List
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import pytz
-
-from ai_commentator import generate_ai_commentary
-from data_processor import check_market_open, get_exchange_rate, process_asset_df
-from google_sheet import GoogleSheetManager
-from macro_data import (
-    fetch_telegram_macro,
-    get_fear_and_greed,
-    get_market_indices,
-    get_treasury_yields,
-)
-from quant_engine import run_quant_scan
-from report_generator import generate_reports
-from telegram_bot import send_telegram_message
+import requests
+import yfinance as yf
 
 
-SIGNAL_STYLES = {
-    "[전량 매도]": ("#ff4d4d", 1),
-    "[차익 실현]": ("#9b59b6", 2),
-    "[분할 익절]": ("#ff9933", 3),
-    "[매수]": ("#3399ff", 4),
-    "[주의/관망]": ("#6c757d", 5),
-    "[홀딩]": ("#2eb82e", 6),
-    "[데이터 없음]": ("#95a5a6", 7),
+# 구글 시트에 '전략' 컬럼이 비어 있을 때 사용하는 기본 티커 매핑
+# 시트에 직접 '장기' / '추세단기' / '역발상우량' / '헷징'을 적으면 시트 값이 최우선 적용됨
+VALID_STRATEGIES = ("장기", "추세단기", "역발상우량", "헷징")
+
+DEFAULT_LONG_TERM_TICKERS = {
+    "TLT", "TMF", "IEF", "SHY", "SGOV",
+    "SPY", "VOO", "QQQ", "QQQM", "SCHD", "GLD",
+}
+DEFAULT_HEDGING_TICKERS = {"VIXY", "UVXY", "VXX", "SQQQ", "SPXS"}
+DEFAULT_CONTRARIAN_TICKERS = {
+    "BTC", "ETH",
+    "NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSM",
 }
 
 
-def extract_fng_score(fng_result: Any, default: int = 50) -> tuple[str, int]:
-    """macro_data.py 수정 여부와 무관하게 (텍스트, 공포탐욕 정수)를 안전하게 추출한다."""
-    if isinstance(fng_result, tuple) and len(fng_result) >= 2:
-        return str(fng_result[0]), int(fng_result[1])
-
-    fng_text = str(fng_result or "")
-    match = re.search(r"CNN\s*공포탐욕\s*지수:\s*(\d+)\s*점", fng_text)
-    score = int(match.group(1)) if match else default
-    return fng_text, score
-
-
-def make_badge(signal: str) -> str:
-    color, _ = SIGNAL_STYLES.get(signal, ("#6c757d", 99))
-    safe_signal = html.escape(signal)
-    return (
-        f'<span style="background-color: {color}; color: white; '
-        f'padding: 3px 8px; border-radius: 5px; font-weight: bold; '
-        f'font-size: 0.85em; margin-right: 6px;">{safe_signal}</span>'
-    )
+@dataclass
+class AssetSignal:
+    ticker: str
+    asset_type: str        # '해외주식', '코인', '연금저축'
+    strategy: str          # '장기', '추세단기', '역발상우량', '헷징'
+    signal: str            # '[전량 매도]', '[차익 실현]', '[분할 익절]', '[매수]', '[주의/관망]', '[홀딩]', '[데이터 없음]'
+    reasons: List[str]     # 기계적으로 발동된 사유 목록
+    return_pct: float
+    metrics: Dict[str, Any]
 
 
-def render_action_board_html(
-    signals: List[Dict[str, Any]],
-    commentary: Dict[str, Any],
+def normalize_ticker(ticker: str) -> str:
+    """거래소 접두사(NASDAQ:, KRW-) 등을 제거해 순수 티커를 추출한다."""
+    clean = str(ticker).strip().upper()
+    if ":" in clean:
+        clean = clean.split(":")[-1]
+    if clean.startswith("KRW-"):
+        clean = clean[4:]
+    if clean.endswith("-USD"):
+        clean = clean[:-4]
+    return clean
+
+
+def fetch_ohlcv(ticker: str, asset_type: str, count: int = 120) -> Optional[pd.DataFrame]:
+    """자산군에 맞춰 최소 35일 이상의 일봉 OHLCV(Close, Volume)를 수집한다."""
+    clean_ticker = normalize_ticker(ticker)
+
+    # 1) 코인: 업비트 원화 마켓 우선 조회 (키 불필요, 알트코인 누락 방지)
+    if asset_type == "코인":
+        try:
+            url = "https://api.upbit.com/v1/candles/days"
+            params = {"market": f"KRW-{clean_ticker}", "count": min(count, 200)}
+            res = requests.get(url, params=params, timeout=10)
+            if res.status_code == 200:
+                rows = res.json()
+                if len(rows) >= 35:
+                    df = pd.DataFrame(rows)
+                    df = df.iloc[::-1].reset_index(drop=True)  # 과거 -> 최신 정렬
+                    df = df.rename(
+                        columns={
+                            "trade_price": "Close",
+                            "candle_acc_trade_volume": "Volume",
+                        }
+                    )
+                    return df[["Close", "Volume"]].astype(float)
+        except Exception as e:
+            print(f"⚠️ 업비트 조회 실패 ({clean_ticker}), yfinance 폴백 시도: {e}")
+
+        # 업비트 미상장 코인은 yfinance USD 페어 폴백
+        clean_ticker = f"{clean_ticker}-USD"
+
+    # 2) 해외주식 및 폴백 코인: yfinance 조회
+    try:
+        hist = yf.Ticker(clean_ticker).history(period="6mo", interval="1d")
+        if hist is not None and len(hist) >= 35:
+            return hist[["Close", "Volume"]].dropna().astype(float)
+    except Exception as e:
+        print(f"❌ OHLCV 조회 실패 ({ticker}): {e}")
+
+    return None
+
+
+def calculate_indicators(df: pd.DataFrame, use_prev_closed: bool = False) -> Dict[str, float]:
+    """EMA5/20, 볼린저밴드(20, 2), MACD(12, 26, 9), RSI(14), 거래량 강도를 계산한다."""
+    close = df["Close"]
+    volume = df["Volume"]
+
+    # EMA
+    ema5 = close.ewm(span=5, adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
+
+    # Bollinger Bands (20, 2)
+    sma20 = close.rolling(window=20).mean()
+    std20 = close.rolling(window=20).std(ddof=0)
+    bb_upper = sma20 + (2 * std20)
+    bb_lower = sma20 - (2 * std20)
+    bb_width = bb_upper - bb_lower
+    bb_pct_b = (close - bb_lower) / bb_width.replace(0, pd.NA)
+
+    # MACD (12, 26, 9)
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+    macd_hist = macd_line - macd_signal
+
+    # RSI (14, Wilder 방식)
+    delta = close.diff()
+    gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    rs = gain / loss.replace(0, pd.NA)
+    rsi = 100 - (100 / (1 + rs))
+
+    # 거래량 강도 (20일 평균 대비 %)
+    vol_ma20 = volume.rolling(window=20).mean()
+    vol_ratio = (volume / vol_ma20.replace(0, pd.NA)) * 100
+
+    # 코인은 미완성 당일봉 휩소 방지를 위해 직전 마감봉(-2) 사용
+    idx = -2 if (use_prev_closed and len(df) >= 2) else -1
+    prev_idx = idx - 1
+
+    return {
+        "close": round(float(close.iloc[idx]), 4),
+        "ema5": round(float(ema5.iloc[idx]), 4),
+        "ema20": round(float(ema20.iloc[idx]), 4),
+        "bb_upper": round(float(bb_upper.iloc[idx]), 4),
+        "bb_mid": round(float(sma20.iloc[idx]), 4),
+        "bb_lower": round(float(bb_lower.iloc[idx]), 4),
+        "bb_pct_b": round(float(bb_pct_b.iloc[idx]) * 100, 1) if pd.notna(bb_pct_b.iloc[idx]) else 50.0,
+        "macd_hist": round(float(macd_hist.iloc[idx]), 4),
+        "prev_macd_hist": round(float(macd_hist.iloc[prev_idx]), 4),
+        "rsi": round(float(rsi.iloc[idx]), 1) if pd.notna(rsi.iloc[idx]) else 50.0,
+        "vol_ratio": round(float(vol_ratio.iloc[idx]), 1) if pd.notna(vol_ratio.iloc[idx]) else 100.0,
+    }
+
+
+def resolve_strategy(
+    ticker: str,
+    asset_type: str,
+    sheet_strategy: Optional[str] = None,
 ) -> str:
-    """결정론적 시그널과 AI 해설을 안전한 HTML 리스트로 렌더링한다."""
-    action_comments = commentary.get("action_comments", {}) or {}
-    portfolio_brief = commentary.get("portfolio_brief", "")
+    """시트 전략 컬럼을 최우선 적용하고, 누락 시 자산군·티커 기본값으로 매핑한다."""
+    if sheet_strategy is not None and pd.notna(sheet_strategy):
+        raw = str(sheet_strategy).strip()
+        if raw in VALID_STRATEGIES:
+            return raw
+        # 이전 버전 시트에 '단기'라고 적혀 있으면 보수적으로 '추세단기'로 취급
+        if raw == "단기":
+            return "추세단기"
 
-    action_items = [s for s in signals if s["signal"] not in ("[홀딩]", "[데이터 없음]")]
-    holding_items = [s for s in signals if s["signal"] == "[홀딩]"]
-    error_items = [s for s in signals if s["signal"] == "[데이터 없음]"]
+    clean = normalize_ticker(ticker)
+    if asset_type == "연금저축" or clean in DEFAULT_LONG_TERM_TICKERS:
+        return "장기"
+    if clean in DEFAULT_HEDGING_TICKERS:
+        return "헷징"
+    if clean in DEFAULT_CONTRARIAN_TICKERS:
+        return "역발상우량"
 
-    # 방어 우선순위 순으로 정렬 (전량 매도 -> 차익 실현 -> 분할 익절 -> 매수 -> 주의/관망)
-    action_items.sort(key=lambda x: SIGNAL_STYLES.get(x["signal"], ("#6c757d", 99))[1])
+    # 알트코인 및 고베타 개별주(MSTR, COIN, SOL, SUI, STX 등)는 기본 '추세단기'
+    return "추세단기"
 
-    blocks = []
 
-    if portfolio_brief:
-        blocks.append(
-            f'<p style="margin-top: 0; margin-bottom: 14px; color: #2c3e50;">'
-            f'<strong>🧭 오늘의 총평:</strong> {html.escape(str(portfolio_brief))}</p>'
+def evaluate_signal(
+    ticker: str,
+    asset_type: str,
+    strategy: str,
+    return_pct: float,
+    metrics: Dict[str, float],
+    fng_score: int,
+    fng_buy_threshold: int = 30,
+) -> AssetSignal:
+    """4개 전략 트랙별 결정론적 규칙으로 최종 매매 시그널을 확정한다."""
+    # -------------------------------------------------
+    # 1. 장기 트랙 (연금/ISA ETF, 국채 등)
+    # -------------------------------------------------
+    if strategy == "장기":
+        return AssetSignal(
+            ticker=ticker,
+            asset_type=asset_type,
+            strategy=strategy,
+            signal="[홀딩]",
+            reasons=["장기 적립 트랙: 단기 기술적 노이즈 무시"],
+            return_pct=return_pct,
+            metrics=metrics,
         )
 
-    if action_items:
-        li_tags = []
-        for item in action_items:
-            ticker = item["ticker"]
-            badge = make_badge(item["signal"])
-            reasons_str = " / ".join(item.get("reasons", []))
-            metrics = item.get("metrics", {}) or {}
-            ai_comment = action_comments.get(ticker, "")
+    close = metrics["close"]
+    ema5 = metrics["ema5"]
+    ema20 = metrics["ema20"]
+    bb_upper = metrics["bb_upper"]
+    bb_lower = metrics["bb_lower"]
+    bb_pct_b = metrics["bb_pct_b"]
+    macd_hist = metrics["macd_hist"]
+    prev_macd_hist = metrics["prev_macd_hist"]
+    rsi = metrics["rsi"]
 
-            metric_line = ""
-            if metrics:
-                metric_line = (
-                    f"<div style='font-size: 0.85em; color: #666; margin-top: 3px;'>"
-                    f"종가 {metrics.get('close')} | EMA5 {metrics.get('ema5')} | "
-                    f"EMA20 {metrics.get('ema20')} | BB위치 {metrics.get('bb_pct_b')}% | "
-                    f"RSI {metrics.get('rsi')} | MACD {metrics.get('macd_hist')}</div>"
-                )
+    # -------------------------------------------------
+    # 2. 헷징 트랙 (VIXY 등 변동성 상품)
+    # -------------------------------------------------
+    if strategy == "헷징":
+        reasons = []
+        if close >= bb_upper:
+            reasons.append(f"볼린저 상단({bb_upper}) 돌파")
+        if rsi >= 70:
+            reasons.append(f"RSI 과열({rsi})")
 
-            comment_line = ""
-            if ai_comment:
-                comment_line = (
-                    f"<div style='font-size: 0.92em; color: #333; margin-top: 4px;'>"
-                    f"💬 {html.escape(str(ai_comment))}</div>"
-                )
+        if reasons:
+            return AssetSignal(ticker, asset_type, strategy, "[차익 실현]", reasons, return_pct, metrics)
+        return AssetSignal(
+            ticker,
+            asset_type,
+            strategy,
+            "[주의/관망]",
+            ["헷징 자산 장기 보유 시 음의 복리 위험, 급등 시 즉시 청산 대기"],
+            return_pct,
+            metrics,
+        )
 
-            li_tags.append(
-                f"<li style='margin-bottom: 12px; list-style: none;'>"
-                f"{badge}<strong>{html.escape(ticker)}</strong> "
-                f"<span style='font-size: 0.85em; color: #888;'>({html.escape(item['asset_type'])} · {html.escape(item['strategy'])})</span>"
-                f"<div style='font-size: 0.9em; color: #444; margin-top: 3px;'>📌 룰 근거: {html.escape(reasons_str)}</div>"
-                f"{metric_line}"
-                f"{comment_line}"
-                f"</li>"
+    # -------------------------------------------------
+    # 3. 추세단기 트랙 (알트코인, 고베타 개별주)
+    #    - 역발상 [매수] 분기 없음 (추세 이탈 종목 물타기 원천 차단)
+    #    - EMA20 이탈 + MACD 음수가 동시에 충족될 때만 [전량 매도]
+    # -------------------------------------------------
+    if strategy == "추세단기":
+        if close < ema20 and macd_hist < 0:
+            macd_tag = "MACD 데드크로스 신규" if prev_macd_hist >= 0 else "MACD 음수 추세"
+            return AssetSignal(
+                ticker,
+                asset_type,
+                strategy,
+                "[전량 매도]",
+                [f"중기 추세 붕괴: EMA20({ema20}) 하향 이탈 + {macd_tag}({macd_hist})"],
+                return_pct,
+                metrics,
             )
 
-        blocks.append(f"<ul style='padding-left: 0; margin: 0;'>{''.join(li_tags)}</ul>")
-    else:
-        blocks.append(
-            "<p style='margin: 8px 0; color: #2eb82e; font-weight: bold;'>"
-            "✅ 오늘 즉각 매매 액션이 필요한 종목이 없습니다. 전 종목 추세 유지 중입니다.</p>"
+        take_profit_reasons = []
+        if close >= bb_upper:
+            take_profit_reasons.append(f"볼린저 상단({bb_upper}) 돌파 (BB {bb_pct_b}%)")
+        if rsi >= 75:
+            take_profit_reasons.append(f"RSI 과열({rsi})")
+        if take_profit_reasons:
+            take_profit_reasons.append("30~50% 분할 익절 구간")
+            return AssetSignal(
+                ticker, asset_type, strategy, "[분할 익절]", take_profit_reasons, return_pct, metrics
+            )
+
+        warn_reasons = []
+        if close < ema5:
+            warn_reasons.append(f"단기 EMA5({ema5}) 이탈")
+        if prev_macd_hist >= 0 and macd_hist < 0:
+            warn_reasons.append(f"MACD 데드크로스 신규 발생({macd_hist})")
+        if close < ema20:
+            warn_reasons.append(f"EMA20({ema20}) 단독 하회 (MACD 아직 양수)")
+        if warn_reasons:
+            return AssetSignal(
+                ticker, asset_type, strategy, "[주의/관망]", warn_reasons, return_pct, metrics
+            )
+
+        return AssetSignal(
+            ticker,
+            asset_type,
+            strategy,
+            "[홀딩]",
+            [f"단기·중기 추세 정상 유지 (EMA5 {ema5} / EMA20 {ema20} 상단)"],
+            return_pct,
+            metrics,
         )
 
-    if holding_items:
-        hold_tickers = ", ".join(html.escape(s["ticker"]) for s in holding_items)
-        blocks.append(
-            f"<div style='margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ddd; "
-            f"font-size: 0.9em; color: #555;'>"
-            f"{make_badge('[홀딩]')} {hold_tickers}</div>"
+    # -------------------------------------------------
+    # 4. 역발상우량 트랙 (BTC, 핵심 빅테크 등)
+    #    - 공포 구간 + 과매도 시 [매수]를 최우선 평가
+    #    - 일반 하락 추세에서는 손절 대신 물타기 대기([주의/관망])
+    # -------------------------------------------------
+    if strategy == "역발상우량":
+        oversold_reasons = []
+        if close <= bb_lower:
+            oversold_reasons.append(f"볼린저 하단({bb_lower}) 이탈 (BB {bb_pct_b}%)")
+        if rsi <= 30:
+            oversold_reasons.append(f"RSI 과매도({rsi})")
+
+        if fng_score <= fng_buy_threshold and oversold_reasons:
+            buy_reasons = [f"CNN 공포탐욕 {fng_score}점(<= {fng_buy_threshold})"] + oversold_reasons
+            return AssetSignal(ticker, asset_type, strategy, "[매수]", buy_reasons, return_pct, metrics)
+
+        take_profit_reasons = []
+        if close >= bb_upper:
+            take_profit_reasons.append(f"볼린저 상단({bb_upper}) 돌파 (BB {bb_pct_b}%)")
+        if rsi >= 75:
+            take_profit_reasons.append(f"RSI 과열({rsi})")
+        if take_profit_reasons:
+            take_profit_reasons.append("과열 구간 일부 분할 익절 고려")
+            return AssetSignal(
+                ticker, asset_type, strategy, "[분할 익절]", take_profit_reasons, return_pct, metrics
+            )
+
+        if close < ema20 and macd_hist < 0:
+            return AssetSignal(
+                ticker,
+                asset_type,
+                strategy,
+                "[주의/관망]",
+                [
+                    f"중기 추세 약화(EMA20 {ema20} 하회 + MACD {macd_hist}) — "
+                    f"공포지수 {fng_buy_threshold} 이하(현재 {fng_score}점) 도달 전 추격 물타기 금지"
+                ],
+                return_pct,
+                metrics,
+            )
+
+        return AssetSignal(
+            ticker,
+            asset_type,
+            strategy,
+            "[홀딩]",
+            [f"우량 자산 추세 안정 유지 (BB {bb_pct_b}% / RSI {rsi})"],
+            return_pct,
+            metrics,
         )
 
-    if error_items:
-        err_tickers = ", ".join(html.escape(s["ticker"]) for s in error_items)
-        blocks.append(
-            f"<div style='margin-top: 8px; font-size: 0.85em; color: #95a5a6;'>"
-            f"⚠️ 시세 조회 실패(수동 확인 필요): {err_tickers}</div>"
-        )
-
-    return "\n".join(blocks)
+    return AssetSignal(ticker, asset_type, strategy, "[홀딩]", ["기본 홀딩"], return_pct, metrics)
 
 
-def main():
-    SPREADSHEET_ID = os.environ.get(
-        "SPREADSHEET_ID", "1tZMCE70ZKaSBbh5ls3MlrpQbzpIa278yFT4DPneva6o"
-    )
-    exchange_rate = get_exchange_rate()
-    sheet_manager = GoogleSheetManager(SPREADSHEET_ID)
+def run_quant_scan(
+    df_assets: pd.DataFrame,
+    asset_type: str,
+    fng_score: int,
+) -> List[Dict[str, Any]]:
+    """시트 DataFrame을 순회하며 전 종목의 결정론적 시그널을 산출한다."""
+    results = []
+    if df_assets is None or df_assets.empty:
+        return results
 
-    # 1. 기준 시각 세팅 (History 기록은 KST, 미국장 리포트 기준일은 NY)
-    tz_kst = pytz.timezone("Asia/Seoul")
-    tz_ny = pytz.timezone("America/New_York")
-    now_str = datetime.now(tz_kst).strftime("%Y-%m-%d %H:%M:%S")
-    us_date_str = datetime.now(tz_ny).strftime("%Y-%m-%d")
+    for _, row in df_assets.iterrows():
+        ticker = str(row.get("티커", "")).strip()
+        if not ticker or ticker.lower() == "nan":
+            continue
 
-    print(f"현재 환율: 1달러 = {exchange_rate:.2f}원")
-    print(f"🚀 시즌2 퀀트 파이프라인 가동 시작 (US: {us_date_str} / KST: {now_str})")
+        raw_ret = str(row.get("수익률(%)", 0)).replace("%", "").replace(",", "").strip()
+        try:
+            return_pct = float(raw_ret)
+        except ValueError:
+            return_pct = 0.0
 
-    # ------------------------------------
-    # 2. 매크로 데이터 수집
-    # ------------------------------------
-    print("📊 매크로 데이터 및 텔레그램 마감 브리핑 수집 중...")
-    indices_data = get_market_indices()
-    yields_data = get_treasury_yields()
-    fng_raw = get_fear_and_greed(indices_data, yields_data)
-    fng_text, fng_score = extract_fng_score(fng_raw)
-    telegram_raw = fetch_telegram_macro()
+        strategy = resolve_strategy(ticker, asset_type, row.get("전략"))
 
-    print(f"🧭 추출된 공포탐욕 지수: {fng_score}점")
+        # 장기 트랙은 차트 API 호출 생략
+        if strategy == "장기":
+            sig = evaluate_signal(ticker, asset_type, strategy, return_pct, {}, fng_score)
+            results.append(asdict(sig))
+            continue
 
-    macro_data = {
-        "indices": indices_data,
-        "yields": yields_data,
-        "fng": fng_text,
-        "fng_score": fng_score,
-        "telegram": telegram_raw,
-    }
-
-    # 휴장일 체크
-    is_us_open = check_market_open("해외주식")
-    is_kr_open = check_market_open("연금저축")
-
-    # ------------------------------------
-    # 3. 각 탭 데이터 처리 및 구글 시트 업데이트
-    # ------------------------------------
-    df_us, ws_us = sheet_manager.get_sheet_data("해외주식")
-    df_us, us_inv_usd, us_eval_usd = process_asset_df(
-        df_us, "해외주식", is_usd=True, is_open=is_us_open
-    )
-    if ws_us:
-        sheet_manager.update_sheet(ws_us, df_us)
-
-    df_coin, ws_coin = sheet_manager.get_sheet_data("COIN")
-    df_coin, coin_inv_krw, coin_eval_krw = process_asset_df(
-        df_coin, "코인", is_usd=False, is_open=True
-    )
-    if ws_coin:
-        sheet_manager.update_sheet(ws_coin, df_coin)
-
-    df_pen, ws_pen = sheet_manager.get_sheet_data("개인연금")
-    df_pen, pen_inv_krw, pen_eval_krw = process_asset_df(
-        df_pen, "연금저축", is_usd=False, is_open=is_kr_open
-    )
-    if ws_pen:
-        sheet_manager.update_sheet(ws_pen, df_pen)
-
-    # ------------------------------------
-    # 4. History 누적 적재
-    # ------------------------------------
-    history_cols = ["기록일자", "티커", "현재가", "수량", "수익률(%)"]
-    history_frames = []
-    for df in (df_us, df_coin, df_pen):
-        if df is not None and not df.empty:
-            df["기록일자"] = now_str
-            valid_cols = [c for c in history_cols if c in df.columns]
-            history_frames.append(df[valid_cols])
-
-    if history_frames:
-        df_all = pd.concat(history_frames, ignore_index=True)
-        sheet_manager.append_rows_to_history(df_all)
-
-    # ------------------------------------
-    # 5. 요약 데이터 계산 (Today 탭 업데이트)
-    # ------------------------------------
-    us_inv_krw = float(us_inv_usd * exchange_rate)
-    us_eval_krw = float(us_eval_usd * exchange_rate)
-    total_inv_krw = float(us_inv_krw + coin_inv_krw + pen_inv_krw)
-    total_eval_krw = float(us_eval_krw + coin_eval_krw + pen_eval_krw)
-
-    last_today_summary = sheet_manager.get_latest_history_summary()
-
-    def get_diff_from_today(current_val: float, asset_name: str) -> float:
-        if last_today_summary is not None and not last_today_summary.empty:
-            try:
-                row = last_today_summary[last_today_summary["자산군"] == asset_name]
-                if not row.empty:
-                    past_val_str = (
-                        str(row.iloc[0]["평가금액(₩)"]).replace(",", "").replace("₩", "")
+        ohlcv = fetch_ohlcv(ticker, asset_type)
+        if ohlcv is None:
+            results.append(
+                asdict(
+                    AssetSignal(
+                        ticker=ticker,
+                        asset_type=asset_type,
+                        strategy=strategy,
+                        signal="[데이터 없음]",
+                        reasons=["차트 시세 조회 실패"],
+                        return_pct=return_pct,
+                        metrics={},
                     )
-                    return float(current_val - float(past_val_str))
-            except Exception:
-                pass
-        return 0.0
+                )
+            )
+            continue
 
-    diff_us = get_diff_from_today(us_eval_krw, "해외주식 (USD 변환)")
-    diff_coin = get_diff_from_today(coin_eval_krw, "COIN")
-    diff_pen = get_diff_from_today(pen_eval_krw, "개인연금")
-    diff_total = get_diff_from_today(total_eval_krw, "총 자산")
+        metrics = calculate_indicators(ohlcv, use_prev_closed=(asset_type == "코인"))
+        sig = evaluate_signal(ticker, asset_type, strategy, return_pct, metrics, fng_score)
+        results.append(asdict(sig))
 
-    today_data = {
-        "자산군": ["해외주식 (USD 변환)", "COIN", "개인연금", "총 자산"],
-        "투자원금(₩)": [
-            int(us_inv_krw),
-            int(coin_inv_krw),
-            int(pen_inv_krw),
-            int(total_inv_krw),
-        ],
-        "평가금액(₩)": [
-            int(us_eval_krw),
-            int(coin_eval_krw),
-            int(pen_eval_krw),
-            int(total_eval_krw),
-        ],
-        "평가손익(₩)": [
-            int(us_eval_krw - us_inv_krw),
-            int(coin_eval_krw - coin_inv_krw),
-            int(pen_eval_krw - pen_inv_krw),
-            int(total_eval_krw - total_inv_krw),
-        ],
-        "수익률(%)": [
-            float((us_eval_krw - us_inv_krw) / us_inv_krw) if us_inv_krw > 0 else 0.0,
-            float((coin_eval_krw - coin_inv_krw) / coin_inv_krw)
-            if coin_inv_krw > 0
-            else 0.0,
-            float((pen_eval_krw - pen_inv_krw) / pen_inv_krw)
-            if pen_inv_krw > 0
-            else 0.0,
-            float((total_eval_krw - total_inv_krw) / total_inv_krw)
-            if total_inv_krw > 0
-            else 0.0,
-        ],
-        "전일대비 변동폭(₩)": [
-            int(diff_us),
-            int(diff_coin),
-            int(diff_pen),
-            int(diff_total),
-        ],
-    }
-    df_today = pd.DataFrame(today_data)
-
-    _, ws_today = sheet_manager.get_sheet_data("Today")
-    if ws_today:
-        sheet_manager.update_sheet(ws_today, df_today)
-        print("✅ Today 탭 업데이트 완료!")
-
-    # ------------------------------------
-    # 6. 시즌2 코어: 결정론적 지표 스캔 + AI 해설
-    # ------------------------------------
-    print("📐 전 종목 차트 지표 계산 및 룰 엔진 판정 중...")
-    all_signals = []
-    all_signals.extend(run_quant_scan(df_us, "해외주식", fng_score))
-    all_signals.extend(run_quant_scan(df_coin, "코인", fng_score))
-    all_signals.extend(run_quant_scan(df_pen, "연금저축", fng_score))
-
-    action_cnt = sum(
-        1 for s in all_signals if s["signal"] not in ("[홀딩]", "[데이터 없음]")
-    )
-    print(f"✅ 룰 엔진 스캔 완료: 전체 {len(all_signals)}종목 중 액션 대상 {action_cnt}건")
-
-    print("🧠 Gemini AI 시황 3줄 요약 및 실행 해설 생성 중...")
-    macro_summary_text = f"{indices_data}\n{yields_data}\n{fng_text}"
-    commentary = generate_ai_commentary(
-        signals=all_signals,
-        telegram_raw=telegram_raw,
-        macro_summary=macro_summary_text,
-        us_date_str=us_date_str,
-    )
-
-    # AI가 요약한 텔레그램 브리핑으로 교체
-    if commentary.get("telegram_summary"):
-        macro_data["telegram"] = commentary["telegram_summary"]
-
-    ai_action_html = render_action_board_html(all_signals, commentary)
-
-    # ------------------------------------
-    # 7. HTML/MD 리포트 렌더링 및 텔레그램 전송
-    # ------------------------------------
-    print("🎨 HTML 웹 리포트 렌더링 중...")
-    generate_reports(
-        df_today,
-        exchange_rate,
-        macro_data=macro_data,
-        us_date_str=us_date_str,
-        ai_action_html=ai_action_html,
-    )
-
-    print("📨 텔레그램 메시지 발송 중...")
-    send_telegram_message(df_today, exchange_rate)
-
-    print("🎯 시즌2 파이프라인 정상 종료!")
-
-
-if __name__ == "__main__":
-    main()
+    return results
