@@ -1,11 +1,22 @@
+# 구글 시트 연동
 gspread
 oauth2client
+
+# 데이터 수집 & 지표 계산
 pandas
 yfinance
 finance-datareader
 pyupbit
-requests
-pandas-ta
-feedparser
-google-generativeai
 pytz
+tabulate
+
+# 크롤링 & HTTP
+requests
+beautifulsoup4
+feedparser
+
+# Gemini AI (신형 SDK로 통일)
+google-genai
+
+# 선택 유지 (data_processor.py에서 import 안 하면 삭제 가능)
+pandas-ta
